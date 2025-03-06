@@ -11,7 +11,7 @@ const customFormat = printf(({ level, message, timestamp }) => {
   return `${timestamp} [${level.toUpperCase()}]: ${message}`;
 });
 
-// Nodemailer transporter setup
+// Nodemailer transporter setup for sending mail
 const transporter = nodemailer.createTransport({
   service: "Gmail",
   host: "smtp.gmail.com",
