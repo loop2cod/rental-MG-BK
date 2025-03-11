@@ -1,22 +1,60 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
-const UserSchema = new mongoose.Schema({
-  name: String,
-  mobile: { type: String, unique: true, required: true },
-  user_role: {
-    type: String,
-    enum: ['admin', 'customer'],
-    required: true  
+const UserSchema = new mongoose.Schema(
+  {
+    name: String,
+    mobile: { type: String, unique: true, required: true },
+    user_role: {
+      type: String,
+      enum: ["admin", "customer"],
+      required: true,
+    },
+    proof_type: {
+      type: String,
+      enum: ["votersId", "aadhar", "drivingLicense", "pancard"],
+      required: true,
+    },
+    notifiers: [
+      {
+        name: {
+          type: String,
+          required: true,
+        },
+        phone: {
+          type: String,
+          validate: {
+            validator: function (v) {
+              // Either phone or email must be present
+              return !!v || !!this.email;
+            },
+            message: "Either phone or email is required",
+          },
+        },
+        email: {
+          type: String,
+          validate: {
+            validator: function (v) {
+              // Either phone or email must be present
+              return !!v || !!this.phone;
+            },
+            message: "Either phone or email is required",
+          },
+        },
+        method: {
+          type: String,
+          enum: ["email", "sms", "whatsapp"],
+          required: true,
+        },
+      },
+    ],
+    proof_id: String,
+    password: { type: String, required: true },
+    created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
-  proof_type: String,
-  proof_id: String,
-  password: { type: String, required: true },
-  created_at: { type: Date, default: Date.now },
-  created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  updated_at: { type: Date, default: Date.now },
-  updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
-});
+  { timestamps: true }
+);
 
 // Hash password before saving
 UserSchema.pre("save", async function (next) {

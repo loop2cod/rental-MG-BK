@@ -1,29 +1,27 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const LogSchema = new mongoose.Schema({
   level: {
     type: String,
-    enum: ['error', 'warn', 'info', 'debug'],
-    required: true
+    enum: ["error", "warn", "info", "debug"],
+    required: true,
   },
   message: {
     type: String,
-    required: true
+    required: true,
   },
   status: {
     type: String,
-    enum: ['unresolved', 'in_progress', 'resolved'],
-    default: 'unresolved'
+    enum: ["unresolved", "in_progress", "resolved"],
+    default: "unresolved",
   },
   timestamp: {
     type: Date,
-    default: Date.now
+    default: Date.now,
+    expires: "90d", // Logs will expire after 90 days
   },
-  metadata: {
-    type: mongoose.Schema.Types.Mixed
-  }
 });
 
-const Log = mongoose.model('Log', LogSchema);
+const Log = mongoose.model("Log", LogSchema);
 
-export default Log; 
+export default Log;

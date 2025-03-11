@@ -1,24 +1,59 @@
-import { loginUser, signupUser } from "../services/authService.js";
+import {
+  loginUser,
+  signupUser,
+  logoutUser,
+  getAuthToken,
+} from "../services/authService.js";
 import { sendResponse } from "../middlewares/responseHandler.js";
 
 export const login = async (req, res) => {
   const { mobile, password } = req.body;
 
-  const response = await loginUser(mobile, password);
-
-  if (response.success) {
-    sendResponse(res, 200, true, "Login successful", response);
-  } else {
-    sendResponse(res, 401, false, res.message);
+  try {
+    const response = await loginUser(mobile, password, res);
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response
+    );
+  } catch (error) {
+    sendResponse(res, 500, false, "Internal server error");
   }
 };
 
 export const signup = async (req, res) => {
   const { mobile, password, name, user_role } = req.body;
-  const response = await signupUser(mobile, password, name, user_role);
-  if (response.success) {
-    sendResponse(res, 200, true, "Signup successful", response);
-  } else {
-    sendResponse(res, 400, false, response);
+
+  try {
+    const response = await signupUser(mobile, password, name, user_role, res);
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response
+    );
+  } catch (error) {
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    const response = logoutUser(res);
+    sendResponse(res, response.statusCode, response.success, response.message);
+  } catch (error) {
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const refresh = async (req, res) => {
+  try {
+    const response = await getAuthToken(req, res);
+    sendResponse(res, response.statusCode, response.success, response.message);
+  } catch (error) {
+    sendResponse(res, 500, false, "Internal server error");
   }
 };

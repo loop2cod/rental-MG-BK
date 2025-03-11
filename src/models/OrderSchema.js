@@ -25,10 +25,8 @@ const OrderSchema = new mongoose.Schema({
   ],
   total_quantity: Number,
   status: { type: String, enum: ["Returned", "Pending"], default: "Pending" },
-  created_at: { type: Date, default: Date.now },
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  updated_at: { type: Date, default: Date.now },
   updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
-});
+}, { timestamps: true });
 
 export default mongoose.model("Order", OrderSchema);

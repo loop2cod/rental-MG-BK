@@ -4,41 +4,199 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-export const loginUser = async (mobile, password) => {
+export const loginUser = async (mobile, password, res) => {
   try {
     const user = await User.findOne({ mobile });
     if (!user) {
-      return { success: false, message: "Invalid credentials" };
+      return {
+        success: false,
+        message: "Invalid credentials",
+        statusCode: 401,
+      };
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return { success: false, message: "Invalid credentials" };
+      return {
+        success: false,
+        message: "Invalid credentials",
+        statusCode: 401,
+      };
     }
 
-    const token = jwt.sign({ userId: user._id, role: user.user_role }, process.env.JWT_SECRET, { expiresIn: "1d" });
+    // Generate access token (short-lived)
+    const accessToken = jwt.sign(
+      { userId: user._id, role: user.user_role },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: "15m" } // 15 minutes
+    );
 
-    return { success: true, token, user: { id: user._id, name: user.name, role: user.user_role } };
+    // Generate refresh token (long-lived)
+    const refreshToken = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: "7d" } // 7 days
+    );
+
+    // Set access token cookie
+    res.cookie("access_token", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    });
+
+    // Set refresh token cookie
+    res.cookie("refresh_token", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    return {
+      success: true,
+      user: { id: user._id, name: user.name, role: user.user_role },
+      statusCode: 200,
+    };
   } catch (error) {
-    return { success: false, message: error.message };
+    console.log("loginUser error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
   }
 };
 
-export const signupUser = async (mobile, password, name, user_role) => {
+export const signupUser = async (mobile, password, name, user_role, res) => {
   try {
     const user = await User.findOne({ mobile });
     if (user) {
-      return { success: false, message: "User already exists" };
+      return {
+        success: false,
+        message: "User already exists",
+        statusCode: 409,
+      };
     }
 
     const newUser = new User({ mobile, password, name, user_role });
     await newUser.save();
 
-    const token = jwt.sign({ userId: newUser._id, role: newUser.user_role }, process.env.JWT_SECRET, { expiresIn: "1d" });
+    // Generate access token (short-lived)
+    const accessToken = jwt.sign(
+      { userId: newUser._id, role: newUser.user_role },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: "15m" } // 15 minutes
+    );
 
-    return { success: true, token, user: { id: newUser._id, name: newUser.name, role: newUser.user_role } };
+    // Generate refresh token (long-lived)
+    const refreshToken = jwt.sign(
+      { userId: newUser._id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: "7d" } // 7 days
+    );
+
+    // Set access token cookie
+    res.cookie("access_token", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    });
+
+    // Set refresh token cookie
+    res.cookie("refresh_token", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    return {
+      success: true,
+      user: {
+        id: newUser._id,
+        name: newUser.name,
+        role: newUser.user_role,
+      },
+      statusCode: 201,
+    };
   } catch (error) {
     console.log("Error => ", error);
-    return { success: false, message: error.message };
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const logoutUser = (res) => {
+  try {
+    res.clearCookie("access_token");
+    res.clearCookie("refresh_token");
+    return {
+      success: true,
+      message: "Logged out successfully",
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.log("logoutUser error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+// Add refresh token endpoint
+export const getAuthToken = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refresh_token;
+    const accessToken = req.cookies.access_token;
+    if (!refreshToken) {
+      return {
+        success: false,
+        message: "No refresh token provided",
+        statusCode: 401,
+      };
+    } else if (!accessToken) {
+      return {
+        success: false,
+        message: "No access token provided",
+        statusCode: 401,
+      };
+    }
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const user = await User.findById(decoded?.userId);
+    if (!user) {
+      return { success: false, message: "User not found", statusCode: 404 };
+    }
+
+    // Generate new access token
+    const newAccessToken = jwt.sign(
+      { userId: user._id, role: user.user_role },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: "15m" }
+    );
+
+    // Set new access token cookie
+    res.cookie("access_token", newAccessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    });
+
+    return { success: true, statusCode: 200 };
+  } catch (error) {
+    console.log("getAuthToken error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
   }
 };

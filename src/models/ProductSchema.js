@@ -5,10 +5,8 @@ const ProductSchema = new mongoose.Schema({
   unit_cost: Number,
   features: { type: Map, of: String }, // Dynamic key-value pairs
   category_id: { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
-  created_at: { type: Date, default: Date.now },
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  updated_at: { type: Date, default: Date.now },
   updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
-});
+}, { timestamps: true });
 
 export default mongoose.model("Product", ProductSchema);
