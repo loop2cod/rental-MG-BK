@@ -34,7 +34,6 @@ const logger = createLogger({
     new transports.MongoDB({
       db: process.env.MONGO_URI, // MongoDB connection string
       collection: "logs",
-      options: { useNewUrlParser: true, useUnifiedTopology: true },
       level: "error", // Only store error logs in MongoDB
     }),
   ],

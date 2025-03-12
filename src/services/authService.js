@@ -31,27 +31,12 @@ export const loginUser = async (mobile, password, res) => {
       { expiresIn: "15m" } // 15 minutes
     );
 
-    // Generate refresh token (long-lived)
-    const refreshToken = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_REFRESH_SECRET,
-      { expiresIn: "7d" } // 7 days
-    );
-
     // Set access token cookie
     res.cookie("access_token", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 15 * 60 * 1000, // 15 minutes
-    });
-
-    // Set refresh token cookie
-    res.cookie("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      // maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
     return {
@@ -102,7 +87,7 @@ export const signupUser = async (mobile, password, name, user_role, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 15 * 60 * 1000, // 15 minutes
+      // maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
     // Set refresh token cookie
@@ -110,7 +95,7 @@ export const signupUser = async (mobile, password, name, user_role, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      // maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
     return {
@@ -154,22 +139,15 @@ export const logoutUser = (res) => {
 // Add refresh token endpoint
 export const getAuthToken = async (req, res) => {
   try {
-    const refreshToken = req.cookies.refresh_token;
     const accessToken = req.cookies.access_token;
-    if (!refreshToken) {
-      return {
-        success: false,
-        message: "No refresh token provided",
-        statusCode: 401,
-      };
-    } else if (!accessToken) {
+    if (!accessToken) {
       return {
         success: false,
         message: "No access token provided",
         statusCode: 401,
       };
     }
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const decoded = jwt.verify(accessToken, process.env.JWT_ACCESS_SECRET);
     const user = await User.findById(decoded?.userId);
     if (!user) {
       return { success: false, message: "User not found", statusCode: 404 };
@@ -179,7 +157,7 @@ export const getAuthToken = async (req, res) => {
     const newAccessToken = jwt.sign(
       { userId: user._id, role: user.user_role },
       process.env.JWT_ACCESS_SECRET,
-      { expiresIn: "15m" }
+      { expiresIn: process.env.ACCESS_EXPIRY }
     );
 
     // Set new access token cookie
@@ -187,7 +165,7 @@ export const getAuthToken = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 15 * 60 * 1000, // 15 minutes
+      // maxAge: process.env.ACCESS_MAXAGE, // 15 minutes
     });
 
     return { success: true, statusCode: 200 };
@@ -198,5 +176,48 @@ export const getAuthToken = async (req, res) => {
       message: "Internal server error",
       statusCode: 500,
     };
+  }
+};
+
+export const checkAuthenticated = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refresh_token;
+    if (!refreshToken) {
+      return {
+        success: false,
+        message: "No refresh token provided",
+        statusCode: 401,
+      };
+    }
+    
+    jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+
+    return {
+      success: true,
+      message: "Refresh token is valid",
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.log("getAuthToken error => ", error);
+
+    if (error.name === "TokenExpiredError") {
+      return {
+        success: false,
+        message: "Refresh token has expired",
+        statusCode: 400,
+      };
+    } else if (error.name === "JsonWebTokenError") {
+      return {
+        success: false,
+        message: "Invalid refresh token",
+        statusCode: 400,
+      };
+    } else {
+      return {
+        success: false,
+        message: "Internal server error",
+        statusCode: 500,
+      };
+    }
   }
 };

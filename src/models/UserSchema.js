@@ -13,7 +13,6 @@ const UserSchema = new mongoose.Schema(
     proof_type: {
       type: String,
       enum: ["votersId", "aadhar", "drivingLicense", "pancard"],
-      required: true,
     },
     notifiers: [
       {
@@ -48,7 +47,7 @@ const UserSchema = new mongoose.Schema(
         },
       },
     ],
-    proof_id: String,
+    proof_id: { type: String },
     password: { type: String, required: true },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
