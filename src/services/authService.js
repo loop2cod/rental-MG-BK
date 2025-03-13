@@ -181,15 +181,18 @@ export const getAuthToken = async (req, res) => {
 
 export const checkAuthenticated = async (req, res) => {
   try {
-    const refreshToken = req.cookies.refresh_token;
-    if (!refreshToken) {
+    console.log("Req.cookies => ", req.cookies);
+
+    const refreshToken = req.cookies?.refresh_token;
+    if (req.cookies === undefined || !refreshToken) {
       return {
         success: false,
         message: "No refresh token provided",
-        statusCode: 401,
+        statusCode: 400,
+        sessionOut: true,
       };
     }
-    
+
     jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
 
     return {
