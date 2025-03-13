@@ -8,6 +8,8 @@ import {
 import { sendResponse } from "../middlewares/responseHandler.js";
 
 export const login = async (req, res) => {
+  console.log("req.body => ", req.body);
+  
   const { mobile, password } = req.body;
 
   try {
