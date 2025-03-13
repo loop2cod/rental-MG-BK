@@ -5,6 +5,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import connectDB from "./src/config/dbConnect.js";
 import authRoutes from "./src/routes/authRoutes.js";
+import cookieParser from "cookie-parser";
 
 dotenv.config();
 connectDB();
@@ -12,9 +13,10 @@ connectDB();
 const app = express();
 
 app.use(express.json());
+app.use(cookieParser());
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: [process.env.ALLOWED_ORIGIN1, process.env.ALLOWED_ORIGIN2],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,

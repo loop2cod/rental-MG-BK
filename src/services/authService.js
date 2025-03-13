@@ -31,6 +31,13 @@ export const loginUser = async (mobile, password, res) => {
       { expiresIn: "15m" } // 15 minutes
     );
 
+    // Generate refresh token (long-lived)
+    const refreshToken = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: process.env.REFRESH_EXPIRY }
+    );
+
     // Set access token cookie
     res.cookie("access_token", accessToken, {
       httpOnly: true,
@@ -38,6 +45,15 @@ export const loginUser = async (mobile, password, res) => {
       sameSite: "strict",
       // maxAge: 15 * 60 * 1000, // 15 minutes
     });
+
+    // Set refresh token cookie
+    res.cookie("refresh_token", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      // maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
 
     return {
       success: true,
@@ -181,8 +197,6 @@ export const getAuthToken = async (req, res) => {
 
 export const checkAuthenticated = async (req, res) => {
   try {
-    console.log("Req.cookies => ", req.cookies);
-
     const refreshToken = req.cookies?.refresh_token;
     if (req.cookies === undefined || !refreshToken) {
       return {
