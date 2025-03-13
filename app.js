@@ -6,6 +6,7 @@ import morgan from "morgan";
 import connectDB from "./src/config/dbConnect.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import inventoryRoutes from "./src/routes/inventoryRoutes.js";
+import categoryRoutes from "./src/routes/categoryRoutes.js";
 import cookieParser from "cookie-parser";
 import formidable from "express-formidable";
 
@@ -32,6 +33,8 @@ app.use(morgan("dev"));
 // Routes
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/inventory", inventoryRoutes);
+app.use("/api/v1/category", categoryRoutes);
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
