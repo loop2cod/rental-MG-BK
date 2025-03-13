@@ -60,10 +60,13 @@ export const refresh = async (req, res) => {
 };
 
 export const checkAuth = async (req, res) => {
+  console.log(1234567);
+  
   try {
     const response = await checkAuthenticated(req, res);
     sendResponse(res, response.statusCode, response.success, response.message);
   } catch (error) {
+    console.log("Error in checkAuth: ", error);
     sendResponse(res, 500, false, "Internal server error");
   }
 };
