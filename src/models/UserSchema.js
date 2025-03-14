@@ -51,6 +51,7 @@ const UserSchema = new mongoose.Schema(
     password: { type: String, required: true },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    isDeleted: { type: Boolean, default: false }
   },
   { timestamps: true }
 );

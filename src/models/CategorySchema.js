@@ -6,6 +6,7 @@ const CategorySchema = new mongoose.Schema(
     description: String,
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    isDeleted: { type: Boolean, default: false }
   },
   { timestamps: true }
 );

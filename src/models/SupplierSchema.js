@@ -8,6 +8,7 @@ const SupplierSchema = new mongoose.Schema(
     status: { type: String, enum: ["Returned", "Pending"], default: "Pending" },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    isDeleted: { type: Boolean, default: false }
   },
   { timestamps: true }
 );

@@ -58,3 +58,70 @@ export const listCategories = async () => {
     };
   }
 };
+
+export const updateCategory = async (categoryData) => {
+  try {
+    // Validate required fields
+    if (!categoryData.name) {
+      return {
+        success: false,
+        message: "Name is required",
+        statusCode: 400,
+      };
+    }
+
+    const existingCategory = await Category.findOne({
+      name: categoryData.name,
+    });
+    if (!existingCategory) {
+      return {
+        success: false,
+        message: "Category not found",
+        statusCode: 404,
+        data: null,
+      };
+    }
+
+    const updatedCategory = await Category.findByIdAndUpdate(
+      existingCategory._id,
+      {
+        name: categoryData.name,
+        description: categoryData.description,
+      },
+      { new: true }
+    );
+
+    return {
+      success: true,
+      data: updatedCategory,
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.log("updateCategory error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const deleteCategory = async (categoryId) => {
+  try {
+    const category = await Category.findByIdAndUpdate(categoryId, {
+      isDeleted: true,
+    });
+    return {
+      success: true,
+      data: category,
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.log("deleteCategory error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};

@@ -20,6 +20,7 @@ const LogSchema = new mongoose.Schema({
     default: Date.now,
     expires: "90d", // Logs will expire after 90 days
   },
+  isDeleted: { type: Boolean, default: false }
 });
 
 const Log = mongoose.model("Log", LogSchema);
