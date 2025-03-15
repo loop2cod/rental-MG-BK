@@ -10,8 +10,8 @@ export const loginUser = async (mobile, password, res) => {
     if (!user) {
       return {
         success: false,
-        message: "Invalid credentials",
-        statusCode: 401,
+        message: "User does not exist",
+        statusCode: 404,
       };
     }
 
@@ -20,7 +20,7 @@ export const loginUser = async (mobile, password, res) => {
       return {
         success: false,
         message: "Invalid credentials",
-        statusCode: 401,
+        statusCode: 409,
       };
     }
 

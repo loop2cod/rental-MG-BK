@@ -7,6 +7,7 @@ import connectDB from "./src/config/dbConnect.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import inventoryRoutes from "./src/routes/inventoryRoutes.js";
 import categoryRoutes from "./src/routes/categoryRoutes.js";
+import supplierRoutes from "./src/routes/supplierRoutes.js";
 import cookieParser from "cookie-parser";
 import formidable from "express-formidable";
 
@@ -34,6 +35,7 @@ app.use(morgan("dev"));
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/inventory", inventoryRoutes);
 app.use("/api/v1/category", categoryRoutes);
+app.use("/api/v1/supplier", supplierRoutes);
 
 
 const PORT = process.env.PORT || 5000;

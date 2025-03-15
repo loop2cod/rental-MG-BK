@@ -2,10 +2,10 @@ import mongoose from "mongoose";
 
 const SupplierSchema = new mongoose.Schema(
   {
-    name: String,
+    name: {type: String, required: true},
     contact: String,
     address: String,
-    status: { type: String, enum: ["Returned", "Pending"], default: "Pending" },
+    status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     isDeleted: { type: Boolean, default: false }

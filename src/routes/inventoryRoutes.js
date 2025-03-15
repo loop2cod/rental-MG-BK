@@ -3,7 +3,9 @@ import { parseForm } from "../middlewares/parseFormMiddleware.js";
 import {
   addProduct,
   deleteProduct,
+  getAllOutsourcedProductsWithoutPaginationController,
   getAllProductsController,
+  getAllProductsWithoutPaginationController,
   updateProduct,
 } from "../controllers/inventoryController.js";
 import { isAuthenticated } from "../middlewares/authMiddleware.js";
@@ -27,5 +29,15 @@ router.put(
 );
 router.delete("/delete-product/:id", isAuthenticated, deleteProduct);
 router.get("/all-products", isAuthenticated, getAllProductsController);
+router.get(
+  "/list-all-products",
+  isAuthenticated,
+  getAllProductsWithoutPaginationController
+);
+router.get(
+  "/list-all-outsourced",
+  isAuthenticated,
+  getAllOutsourcedProductsWithoutPaginationController
+);
 
 export default router;

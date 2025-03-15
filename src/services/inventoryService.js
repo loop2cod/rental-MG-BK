@@ -1,5 +1,6 @@
 import Product from "../models/ProductSchema.js";
 import Inventory from "../models/InventorySchema.js";
+import OutsourcedProduct from "../models/OutsourcedProductSchema.js";
 
 export const addProductToInventory = async (fields, files, userId) => {
   try {
@@ -246,7 +247,7 @@ export const getAllProducts = async (
         },
         { $skip: skip },
         { $limit: limit },
-      ])
+      ]),
     ]);
 
     return {
@@ -264,6 +265,46 @@ export const getAllProducts = async (
     };
   } catch (error) {
     console.error("getAllProducts error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const getAllProductsWithoutPagination = async () => {
+  try {
+    const products = await Product.find({ isDeleted: false }, { name: 1 });
+    return {
+      success: true,
+      data: products,
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("getAllProductsWithoutPagination error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+
+export const getAllOutsourcedProductsWithoutPagination = async () => {
+  try {
+    const products = await OutsourcedProduct.find(
+      { isDeleted: false },
+      { product_name: 1 }
+    );
+    return {
+      success: true,
+      data: products,
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("getAllOutsourcedProductsWithoutPagination error => ", error);
     return {
       success: false,
       message: "Internal server error",
