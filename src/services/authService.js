@@ -159,35 +159,71 @@ export const logoutUser = (res) => {
 export const getAuthToken = async (req, res) => {
   try {
     const accessToken = req.cookies.access_token;
-    if (!accessToken) {
+    const refreshToken = req.cookies.refresh_token;
+
+    // If no tokens are present
+    if (!accessToken && !refreshToken) {
       return {
         success: false,
-        message: "No access token provided",
+        message: "No tokens provided",
         statusCode: 401,
       };
     }
-    const decoded = jwt.verify(accessToken, process.env.JWT_ACCESS_SECRET);
-    const user = await User.findById(decoded?.userId);
-    if (!user) {
-      return { success: false, message: "User not found", statusCode: 404 };
+
+    // Try to verify access token
+    try {
+      const decoded = jwt.verify(accessToken, process.env.JWT_ACCESS_SECRET);
+      const user = await User.findById(decoded?.userId);
+      if (!user) {
+        return { success: false, message: "User not found", statusCode: 404 };
+      }
+      return { success: true, statusCode: 200 };
+    } catch (accessTokenError) {
+      // If access token is expired, try to refresh it
+      if (accessTokenError.name === 'TokenExpiredError' && refreshToken) {
+        try {
+          const refreshDecoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+          const user = await User.findById(refreshDecoded?.userId);
+          
+          if (!user) {
+            return { success: false, message: "User not found", statusCode: 404 };
+          }
+
+          // Generate new access token
+          const newAccessToken = jwt.sign(
+            { userId: user._id, role: user.user_role },
+            process.env.JWT_ACCESS_SECRET,
+            { expiresIn: process.env.ACCESS_EXPIRY }
+          );
+
+          // Set new access token cookie
+          res.cookie("access_token", newAccessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+          });
+
+          return { 
+            success: true, 
+            statusCode: 200,
+            newAccessToken 
+          };
+        } catch (refreshTokenError) {
+          console.log("Refresh token error => ", refreshTokenError);
+          return {
+            success: false,
+            message: "Invalid refresh token",
+            statusCode: 401,
+          };
+        }
+      }
+      console.log("Access token error => ", accessTokenError);
+      return {
+        success: false,
+        message: "Invalid access token",
+        statusCode: 401,
+      };
     }
-
-    // Generate new access token
-    const newAccessToken = jwt.sign(
-      { userId: user._id, role: user.user_role },
-      process.env.JWT_ACCESS_SECRET,
-      { expiresIn: process.env.ACCESS_EXPIRY }
-    );
-
-    // Set new access token cookie
-    res.cookie("access_token", newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      // maxAge: process.env.ACCESS_MAXAGE, // 15 minutes
-    });
-
-    return { success: true, statusCode: 200 };
   } catch (error) {
     console.log("getAuthToken error => ", error);
     return {
