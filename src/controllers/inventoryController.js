@@ -49,10 +49,19 @@ export const deleteProduct = async (req, res) => {
 
 export const getAllProductsController = async (req, res) => {
   try {
-    const response = await getAllProducts();
+    const { page = 1, limit = 10, search = "" } = req.query;
+    const response = await getAllProducts(Number(page), Number(limit), search);
 
-    sendResponse(res, 200, response.success, response.message, response.data);
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
   } catch (error) {
+    console.log("getAllProductsController error => ", error);
+    
     sendResponse(res, 500, false, "Internal server error");
   }
 };

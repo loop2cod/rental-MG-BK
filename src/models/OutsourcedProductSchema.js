@@ -3,11 +3,12 @@ import mongoose from "mongoose";
 const OutsourcedProductSchema = new mongoose.Schema(
   {
     supplier_id: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier" },
-    product_name: String,
-    unit_cost: Number,
+    product_name: { type: String, required: true },
+    unit_cost: { type: Number, required: true },
+    quantity: { type: Number, required: true },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    isDeleted: { type: Boolean, default: false }
+    isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

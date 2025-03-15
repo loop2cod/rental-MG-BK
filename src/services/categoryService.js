@@ -43,7 +43,7 @@ export const addCategory = async (categoryData) => {
 
 export const listCategories = async () => {
   try {
-    const categories = await Category.find({});
+    const categories = await Category.find({ isDeleted: false });
     return {
       success: true,
       data: categories,

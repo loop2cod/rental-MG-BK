@@ -6,9 +6,6 @@ dotenv.config();
 
 export const loginUser = async (mobile, password, res) => {
   try {
-    console.log("mobile => ", mobile);
-    console.log("password => ", password);
-    
     const user = await User.findOne({ mobile });
     if (!user) {
       return {

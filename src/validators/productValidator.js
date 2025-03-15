@@ -13,6 +13,17 @@ export const validateProduct = [
       });
     }
 
+    // Validate description (optional)
+    if (
+      fields?.description &&
+      typeof fields.description !== "string"
+    ) {
+      errors.push({
+        msg: "Description must be a string",
+        param: "description",
+      });
+    }
+
     // Validate unit_cost
     if (
       !fields?.unit_cost ||

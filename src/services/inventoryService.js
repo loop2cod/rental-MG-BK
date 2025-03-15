@@ -27,6 +27,7 @@ export const addProductToInventory = async (fields, files, userId) => {
     // Create the product in the Product collection
     const newProduct = new Product({
       name: fields.name,
+      description: fields.description,
       unit_cost: fields.unit_cost,
       features: JSON.parse(fields.features || "{}"),
       images,
@@ -80,6 +81,7 @@ export const updateProductOfInventory = async (productId, fields) => {
       productId,
       {
         name: fields.name,
+        description: fields.description,
         unit_cost: fields.unit_cost,
         features: JSON.parse(fields.features || "{}"),
         images: fields.images,
@@ -136,45 +138,132 @@ export const deleteProductOfInventory = async (productId) => {
   }
 };
 
-export const getAllProducts = async () => {
+export const getAllProducts = async (
+  page = 1,
+  limit = 10,
+  searchKeyword = ""
+) => {
   try {
-    const productsWithInventory = await Product.aggregate([
-      {
-        $lookup: {
-          from: "inventories",
-          localField: "_id",
-          foreignField: "product_id",
-          as: "inventoryDetails",
+    const skip = (page - 1) * limit;
+    const baseMatchCondition = { isDeleted: false };
+
+    // Fetch products with inventory details and category name
+    const [productsWithInventory] = await Promise.all([
+      Product.aggregate([
+        { $match: baseMatchCondition }, // Only filter out deleted products initially
+        {
+          $lookup: {
+            from: "categories",
+            localField: "category_id",
+            foreignField: "_id",
+            as: "categoryDetails",
+          },
         },
-      },
-      {
-        $match: { isDeleted: false },
-      },
-      {
-        $addFields: {
-          inventoryQuantity: {
-            $cond: {
-              if: { $gt: [{ $size: "$inventoryDetails" }, 0] },
-              then: { $arrayElemAt: ["$inventoryDetails.quantity", 0] },
-              else: 0
-            }
-          }
-        }
-      },
-      {
-        $project: {
-          inventoryDetails: 0 // Remove the inventoryDetails field
-        }
-      }
+        {
+          $lookup: {
+            from: "inventories",
+            localField: "_id",
+            foreignField: "product_id",
+            as: "inventoryDetails",
+          },
+        },
+        {
+          $addFields: {
+            inventoryQuantity: {
+              $ifNull: [{ $arrayElemAt: ["$inventoryDetails.quantity", 0] }, 0],
+            },
+            categoryName: {
+              $ifNull: [{ $arrayElemAt: ["$categoryDetails.name", 0] }, ""],
+            },
+          },
+        },
+        // Apply search conditions after lookups
+        ...(searchKeyword
+          ? [
+              {
+                $match: {
+                  $or: [
+                    ...(isNaN(searchKeyword)
+                      ? [
+                          { name: { $regex: searchKeyword, $options: "i" } },
+                          {
+                            description: {
+                              $regex: searchKeyword,
+                              $options: "i",
+                            },
+                          },
+                          {
+                            categoryName: {
+                              $regex: searchKeyword,
+                              $options: "i",
+                            },
+                          }, // Search categoryName
+                          {
+                            $expr: {
+                              $gt: [
+                                {
+                                  $size: {
+                                    $filter: {
+                                      input: { $objectToArray: "$features" },
+                                      as: "feature",
+                                      cond: {
+                                        $or: [
+                                          {
+                                            $regexMatch: {
+                                              input: "$$feature.k",
+                                              regex: searchKeyword,
+                                              options: "i",
+                                            },
+                                          },
+                                          {
+                                            $regexMatch: {
+                                              input: "$$feature.v",
+                                              regex: searchKeyword,
+                                              options: "i",
+                                            },
+                                          },
+                                        ],
+                                      },
+                                    },
+                                  },
+                                },
+                                0,
+                              ],
+                            },
+                          },
+                        ]
+                      : [{ unit_cost: Number(searchKeyword) }]),
+                  ],
+                },
+              },
+            ]
+          : []),
+        {
+          $project: {
+            inventoryDetails: 0,
+            categoryDetails: 0,
+          },
+        },
+        { $skip: skip },
+        { $limit: limit },
+      ])
     ]);
 
     return {
       success: true,
-      data: productsWithInventory,
+      data: {
+        products: productsWithInventory,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(productsWithInventory?.length / limit),
+          totalItems: productsWithInventory?.length || 0,
+          itemsPerPage: limit,
+        },
+      },
       statusCode: 200,
     };
   } catch (error) {
-    console.log("getAllProducts error => ", error);
+    console.error("getAllProducts error => ", error);
     return {
       success: false,
       message: "Internal server error",

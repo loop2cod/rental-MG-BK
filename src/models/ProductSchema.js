@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const ProductSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
+    description: { type: String },
     unit_cost: { type: Number, required: true },
     features: { type: Map, of: String }, // Dynamic key-value pairs
     images: [{ type: String }], // Array of image URLs or file paths
@@ -13,5 +14,8 @@ const ProductSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+ProductSchema.index({ name: "text", description: "text" });
+ProductSchema.index({ unit_cost: 1 });
+
 
 export default mongoose.model("Product", ProductSchema);
