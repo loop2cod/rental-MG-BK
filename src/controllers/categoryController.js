@@ -1,4 +1,4 @@
-import { addCategory, listCategories } from "../services/categoryService.js";
+import { addCategory, deleteCategory, listCategories, updateCategory } from "../services/categoryService.js";
 import { sendResponse } from "../middlewares/responseHandler.js";
 
 export const createCategory = async (req, res) => {
@@ -37,11 +37,11 @@ export const getAllCategory = async (req, res) => {
   }
 };
 
-
-export const updateCategory = async (req, res) => {
+export const updateCategoryController = async (req, res) => {
   try {
     const categoryData = {
       ...req.body,
+      _id: req.params.id,
       updated_by: req.user._id,
     };
 
@@ -54,11 +54,12 @@ export const updateCategory = async (req, res) => {
       response.data
     );
   } catch (error) {
+    console.log("updateCategoryController error => ", error);
     sendResponse(res, 500, false, "Internal server error");
   }
 };
 
-export const deleteCategory = async (req, res) => {
+export const deleteCategoryController = async (req, res) => {
   try {
     const response = await deleteCategory(req.params.id);
     sendResponse(

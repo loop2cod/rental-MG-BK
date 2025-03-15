@@ -70,10 +70,16 @@ export const updateCategory = async (categoryData) => {
       };
     }
 
-    const existingCategory = await Category.findOne({
-      name: categoryData.name,
-    });
-    if (!existingCategory) {
+    const updatedCategory = await Category.findByIdAndUpdate(
+      categoryData._id,
+      {
+        name: categoryData.name,
+        description: categoryData.description,
+      },
+      { new: true }
+    );
+
+    if (!updatedCategory) {
       return {
         success: false,
         message: "Category not found",
@@ -81,15 +87,6 @@ export const updateCategory = async (categoryData) => {
         data: null,
       };
     }
-
-    const updatedCategory = await Category.findByIdAndUpdate(
-      existingCategory._id,
-      {
-        name: categoryData.name,
-        description: categoryData.description,
-      },
-      { new: true }
-    );
 
     return {
       success: true,
@@ -108,12 +105,32 @@ export const updateCategory = async (categoryData) => {
 
 export const deleteCategory = async (categoryId) => {
   try {
+    const isAlreadyDeleted = await Category.findById(categoryId);
+    
+    if (isAlreadyDeleted?.isDeleted) {
+      return {
+        success: false,
+        message: "Category is already deleted",
+        statusCode: 400,
+      };
+    }
+
     const category = await Category.findByIdAndUpdate(categoryId, {
       isDeleted: true,
     });
+
+    if (!category) {
+      return {
+        success: false,
+        message: "Category not found",
+        statusCode: 404,
+        data: null,
+      };
+    }
+
     return {
       success: true,
-      data: category,
+      message: "Category deleted",
       statusCode: 200,
     };
   } catch (error) {
