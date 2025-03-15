@@ -108,7 +108,7 @@ export const deleteProductOfInventory = async (productId) => {
   try {
     const isAlreadyDeleted = await Product.findById(productId);
     console.log("isAlreadyDeleted => ", isAlreadyDeleted);
-    
+
     if (isAlreadyDeleted?.isDeleted) {
       return {
         success: false,
@@ -128,6 +128,53 @@ export const deleteProductOfInventory = async (productId) => {
     };
   } catch (error) {
     console.log("deleteInventory error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const getAllProducts = async () => {
+  try {
+    const productsWithInventory = await Product.aggregate([
+      {
+        $lookup: {
+          from: "inventories",
+          localField: "_id",
+          foreignField: "product_id",
+          as: "inventoryDetails",
+        },
+      },
+      {
+        $match: { isDeleted: false },
+      },
+      {
+        $addFields: {
+          inventoryQuantity: {
+            $cond: {
+              if: { $gt: [{ $size: "$inventoryDetails" }, 0] },
+              then: { $arrayElemAt: ["$inventoryDetails.quantity", 0] },
+              else: 0
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          inventoryDetails: 0 // Remove the inventoryDetails field
+        }
+      }
+    ]);
+
+    return {
+      success: true,
+      data: productsWithInventory,
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.log("getAllProducts error => ", error);
     return {
       success: false,
       message: "Internal server error",

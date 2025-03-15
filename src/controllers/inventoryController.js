@@ -3,6 +3,7 @@ import {
   addProductToInventory,
   updateProductOfInventory,
   deleteProductOfInventory,
+  getAllProducts,
 } from "../services/inventoryService.js";
 
 export const addProduct = async (req, res) => {
@@ -39,6 +40,16 @@ export const deleteProduct = async (req, res) => {
     const { id } = req.params;
 
     const response = await deleteProductOfInventory(id);
+
+    sendResponse(res, 200, response.success, response.message, response.data);
+  } catch (error) {
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const getAllProductsController = async (req, res) => {
+  try {
+    const response = await getAllProducts();
 
     sendResponse(res, 200, response.success, response.message, response.data);
   } catch (error) {

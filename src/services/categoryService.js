@@ -106,7 +106,6 @@ export const updateCategory = async (categoryData) => {
 export const deleteCategory = async (categoryId) => {
   try {
     const isAlreadyDeleted = await Category.findById(categoryId);
-    
     if (isAlreadyDeleted?.isDeleted) {
       return {
         success: false,
