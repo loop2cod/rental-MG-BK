@@ -6,9 +6,11 @@ const InventorySchema = new mongoose.Schema(
     quantity: Number,
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    isDeleted: { type: Boolean, default: false }
+    isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
+
+InventorySchema.index({ quantity: 1 });
 
 export default mongoose.model("Inventory", InventorySchema);

@@ -149,9 +149,9 @@ export const getAllProducts = async (
     const baseMatchCondition = { isDeleted: false };
 
     // Fetch products with inventory details and category name
-    const [productsWithInventory] = await Promise.all([
+    const [productsWithInventory, totalCountResult] = await Promise.all([
       Product.aggregate([
-        { $match: baseMatchCondition }, // Only filter out deleted products initially
+        { $match: baseMatchCondition }, // Filter out deleted products initially
         {
           $lookup: {
             from: "categories",
@@ -233,7 +233,10 @@ export const getAllProducts = async (
                             },
                           },
                         ]
-                      : [{ unit_cost: Number(searchKeyword) }]),
+                      : [
+                          { unit_cost: Number(searchKeyword) },
+                          { inventoryQuantity: Number(searchKeyword) },
+                        ]),
                   ],
                 },
               },
@@ -248,7 +251,112 @@ export const getAllProducts = async (
         { $skip: skip },
         { $limit: limit },
       ]),
+
+      // Get the correct total count (without $skip and $limit)
+      Product.aggregate([
+        { $match: baseMatchCondition }, // Filter out deleted products initially
+        {
+          $lookup: {
+            from: "categories",
+            localField: "category_id",
+            foreignField: "_id",
+            as: "categoryDetails",
+          },
+        },
+        {
+          $lookup: {
+            from: "inventories",
+            localField: "_id",
+            foreignField: "product_id",
+            as: "inventoryDetails",
+          },
+        },
+        {
+          $addFields: {
+            inventoryQuantity: {
+              $ifNull: [{ $arrayElemAt: ["$inventoryDetails.quantity", 0] }, 0],
+            },
+            categoryName: {
+              $ifNull: [{ $arrayElemAt: ["$categoryDetails.name", 0] }, ""],
+            },
+          },
+        },
+        // Apply search conditions after lookups
+        ...(searchKeyword
+          ? [
+              {
+                $match: {
+                  $or: [
+                    ...(isNaN(searchKeyword)
+                      ? [
+                          { name: { $regex: searchKeyword, $options: "i" } },
+                          {
+                            description: {
+                              $regex: searchKeyword,
+                              $options: "i",
+                            },
+                          },
+                          {
+                            categoryName: {
+                              $regex: searchKeyword,
+                              $options: "i",
+                            },
+                          },
+                          {
+                            $expr: {
+                              $gt: [
+                                {
+                                  $size: {
+                                    $filter: {
+                                      input: { $objectToArray: "$features" },
+                                      as: "feature",
+                                      cond: {
+                                        $or: [
+                                          {
+                                            $regexMatch: {
+                                              input: "$$feature.k",
+                                              regex: searchKeyword,
+                                              options: "i",
+                                            },
+                                          },
+                                          {
+                                            $regexMatch: {
+                                              input: "$$feature.v",
+                                              regex: searchKeyword,
+                                              options: "i",
+                                            },
+                                          },
+                                        ],
+                                      },
+                                    },
+                                  },
+                                },
+                                0,
+                              ],
+                            },
+                          },
+                        ]
+                      : [
+                          { unit_cost: Number(searchKeyword) },
+                          { inventoryQuantity: Number(searchKeyword) },
+                        ]),
+                  ],
+                },
+              },
+            ]
+          : []),
+        {
+          $project: {
+            inventoryDetails: 0,
+            categoryDetails: 0,
+          },
+        },
+        { $count: "totalCount" }, // This should come **after all search conditions**
+      ]),
     ]);
+
+    const totalCount =
+      totalCountResult.length > 0 ? totalCountResult[0].totalCount : 0;
 
     return {
       success: true,
@@ -256,8 +364,8 @@ export const getAllProducts = async (
         products: productsWithInventory,
         pagination: {
           currentPage: page,
-          totalPages: Math.ceil(productsWithInventory?.length / limit),
-          totalItems: productsWithInventory?.length || 0,
+          totalPages: Math.ceil(totalCount / limit),
+          totalItems: totalCount,
           itemsPerPage: limit,
         },
       },
@@ -312,7 +420,6 @@ export const getAllOutsourcedProductsWithoutPagination = async () => {
   }
 };
 
-
 export const getProductDetails = async (productId) => {
   try {
     // Validate if the product ID exists
@@ -326,14 +433,23 @@ export const getProductDetails = async (productId) => {
     }
 
     // Fetch the inventory record for the product
-    const inventory = await Inventory.findOne({ product_id: productId, isDeleted: false });
+    const inventory = await Inventory.findOne({
+      product_id: productId,
+      isDeleted: false,
+    });
     const quantity = inventory ? inventory.quantity : 0;
+
+    // Convert Mongoose document to plain object and include features
+    const productData = product.toObject();
+    if (product.features instanceof Map) {
+      productData.features = Object.fromEntries(product.features); // Convert Map to plain object
+    }
 
     // Return product details with inventory quantity
     return {
       success: true,
       data: {
-        ...product.toObject(), // Convert Mongoose document to plain object
+        ...productData, // Use the modified product data
         quantity, // Add quantity from inventory
       },
       statusCode: 200,
