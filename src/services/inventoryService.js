@@ -68,6 +68,7 @@ export const addProductToInventory = async (fields, files, userId) => {
 
 export const updateProductOfInventory = async (productId, fields) => {
   try {
+    // Validate if the product exists
     const existingProduct = await Product.findById(productId);
     if (!existingProduct) {
       return {
@@ -78,6 +79,23 @@ export const updateProductOfInventory = async (productId, fields) => {
       };
     }
 
+    // Validate if the new name is already taken by another product
+    if (fields.name && fields.name !== existingProduct.name) {
+      const productWithSameName = await Product.findOne({
+        name: fields.name,
+        _id: { $ne: productId }, // Exclude the current product
+      });
+      if (productWithSameName) {
+        return {
+          success: false,
+          message: "Product name already exists",
+          statusCode: 409,
+          data: null,
+        };
+      }
+    }
+
+    // Update the product
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       {
@@ -90,6 +108,21 @@ export const updateProductOfInventory = async (productId, fields) => {
       },
       { new: true }
     );
+
+    const updateQuantity = await Inventory.findOneAndUpdate(
+      { product_id: productId },
+      { quantity: fields.quantity || 0 },
+      { new: true }
+    );
+
+    if (!updateQuantity) {
+      return {
+        success: false,
+        message: "Product quantity not found",
+        statusCode: 404,
+        data: null,
+      };
+    }
 
     return {
       success: true,
