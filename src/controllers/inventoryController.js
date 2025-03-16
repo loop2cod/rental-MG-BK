@@ -6,6 +6,7 @@ import {
   getAllProducts,
   getAllProductsWithoutPagination,
   getAllOutsourcedProductsWithoutPagination,
+  getProductDetails,
 } from "../services/inventoryService.js";
 
 export const addProduct = async (req, res) => {
@@ -99,6 +100,26 @@ export const getAllOutsourcedProductsWithoutPaginationController = async (req, r
     );
   } catch (error) {
     console.log("getAllOutsourcedProductsWithoutPaginationController error => ", error);
+    
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const getProductDetailsController = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const response = await getProductDetails(id);
+
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    console.log("getProductDetailsController error => ", error);
     
     sendResponse(res, 500, false, "Internal server error");
   }

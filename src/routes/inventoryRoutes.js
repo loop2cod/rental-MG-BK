@@ -6,6 +6,7 @@ import {
   getAllOutsourcedProductsWithoutPaginationController,
   getAllProductsController,
   getAllProductsWithoutPaginationController,
+  getProductDetailsController,
   updateProduct,
 } from "../controllers/inventoryController.js";
 import { isAuthenticated } from "../middlewares/authMiddleware.js";
@@ -38,6 +39,12 @@ router.get(
   "/list-all-outsourced",
   isAuthenticated,
   getAllOutsourcedProductsWithoutPaginationController
+);
+
+router.get(
+  "/get-product-details/:id",
+  isAuthenticated,
+  getProductDetailsController
 );
 
 export default router;

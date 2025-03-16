@@ -291,7 +291,6 @@ export const getAllProductsWithoutPagination = async () => {
   }
 };
 
-
 export const getAllOutsourcedProductsWithoutPagination = async () => {
   try {
     const products = await OutsourcedProduct.find(
@@ -305,6 +304,42 @@ export const getAllOutsourcedProductsWithoutPagination = async () => {
     };
   } catch (error) {
     console.error("getAllOutsourcedProductsWithoutPagination error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+
+export const getProductDetails = async (productId) => {
+  try {
+    // Validate if the product ID exists
+    const product = await Product.findById(productId).populate("category_id");
+    if (!product) {
+      return {
+        success: false,
+        message: "Product not found",
+        statusCode: 404,
+      };
+    }
+
+    // Fetch the inventory record for the product
+    const inventory = await Inventory.findOne({ product_id: productId, isDeleted: false });
+    const quantity = inventory ? inventory.quantity : 0;
+
+    // Return product details with inventory quantity
+    return {
+      success: true,
+      data: {
+        ...product.toObject(), // Convert Mongoose document to plain object
+        quantity, // Add quantity from inventory
+      },
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("Error in getProductDetails => ", error);
     return {
       success: false,
       message: "Internal server error",
