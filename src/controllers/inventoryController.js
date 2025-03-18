@@ -7,6 +7,8 @@ import {
   getAllProductsWithoutPagination,
   getAllOutsourcedProductsWithoutPagination,
   getProductDetails,
+  addOutsourcedProduct,
+  getOutsourcedProductsBasedOnSupplier,
 } from "../services/inventoryService.js";
 
 export const addProduct = async (req, res) => {
@@ -20,6 +22,16 @@ export const addProduct = async (req, res) => {
       response.message,
       response.data
     );
+  } catch (error) {
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const addOutsourcedProductController = async (req, res) => {
+  try {
+    const response = await addOutsourcedProduct(req?.body, req.userId);
+
+    sendResponse(res, 200, response.success, response.message, response.data);
   } catch (error) {
     sendResponse(res, 500, false, "Internal server error");
   }
@@ -64,7 +76,7 @@ export const getAllProductsController = async (req, res) => {
     );
   } catch (error) {
     console.log("getAllProductsController error => ", error);
-    
+
     sendResponse(res, 500, false, "Internal server error");
   }
 };
@@ -82,12 +94,15 @@ export const getAllProductsWithoutPaginationController = async (req, res) => {
     );
   } catch (error) {
     console.log("getAllProductsWithoutPaginationController error => ", error);
-    
+
     sendResponse(res, 500, false, "Internal server error");
   }
 };
 
-export const getAllOutsourcedProductsWithoutPaginationController = async (req, res) => {
+export const getAllOutsourcedProductsWithoutPaginationController = async (
+  req,
+  res
+) => {
   try {
     const response = await getAllOutsourcedProductsWithoutPagination();
 
@@ -99,8 +114,11 @@ export const getAllOutsourcedProductsWithoutPaginationController = async (req, r
       response.data
     );
   } catch (error) {
-    console.log("getAllOutsourcedProductsWithoutPaginationController error => ", error);
-    
+    console.log(
+      "getAllOutsourcedProductsWithoutPaginationController error => ",
+      error
+    );
+
     sendResponse(res, 500, false, "Internal server error");
   }
 };
@@ -108,7 +126,6 @@ export const getAllOutsourcedProductsWithoutPaginationController = async (req, r
 export const getProductDetailsController = async (req, res) => {
   try {
     const { id } = req.params;
-
     const response = await getProductDetails(id);
 
     sendResponse(
@@ -120,7 +137,24 @@ export const getProductDetailsController = async (req, res) => {
     );
   } catch (error) {
     console.log("getProductDetailsController error => ", error);
-    
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const getOutProductsBasedOnsupplierControler = async (req, res) => {
+  try {
+    const { supplier_id } = req.params;
+    const response = await getOutsourcedProductsBasedOnSupplier(supplier_id);
+
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    console.log("getProductDetailsController error => ", error);
     sendResponse(res, 500, false, "Internal server error");
   }
 };

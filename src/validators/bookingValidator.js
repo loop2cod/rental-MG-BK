@@ -72,6 +72,12 @@ export const validateBooking = [
     .isArray()
     .withMessage("booking_items must be an array"),
 
+    // Validate outsourced_items
+  body("outsourced_items")
+    .optional()
+    .isArray()
+    .withMessage("outsourced_items must be an array"),
+
   // Validate total_quantity
   body("total_quantity")
     .notEmpty()

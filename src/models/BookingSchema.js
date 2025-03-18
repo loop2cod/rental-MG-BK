@@ -17,12 +17,24 @@ const BookingSchema = new mongoose.Schema(
         total_price: Number,
       },
     ],
+    outsourced_items: [
+      {
+        out_product_id: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "OutsourcedProduct",
+        },
+        name: String,
+        price: Number,
+        quantity: Number,
+        total_price: Number,
+      },
+    ],
     total_quantity: Number,
     amount_paid: Number,
     total_amount: Number,
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    isDeleted: { type: Boolean, default: false }
+    isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

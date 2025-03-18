@@ -53,6 +53,7 @@ export const addBooking = async (fields, userId) => {
       to_time: fields.to_time,
       booking_date: fields.booking_date,
       booking_items: fields.booking_items,
+      outsourced_items: fields.outsourced_items,
       total_quantity: fields.total_quantity,
       amount_paid: fields.amount_paid,
       total_amount: fields.total_amount,
@@ -115,6 +116,9 @@ export const listBookings = async (
       // Search in string fields
       searchQuery.$or.push(
         { "booking_items.name": { $regex: search, $options: "i" } } // Product name search
+      );
+      searchQuery.$or.push(
+        { "outsourced_items.name": { $regex: search, $options: "i" } } // Product name search
       );
 
       // Search in numeric fields if search is a number

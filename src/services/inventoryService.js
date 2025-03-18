@@ -66,6 +66,48 @@ export const addProductToInventory = async (fields, files, userId) => {
   }
 };
 
+export const addOutsourcedProduct = async (fields, userId) => {
+  try {
+    const existingProduct = await OutsourcedProduct.findOne({
+      product_name: fields.product_name,
+      supplier_id: fields.supplier_id,
+    });
+    if (existingProduct) {
+      return {
+        success: false,
+        message: "Product already exists",
+        statusCode: 409,
+      };
+    }
+
+    // Create the outsourced product
+    const newProduct = new OutsourcedProduct({
+      supplier_id: fields.supplier_id,
+      product_name: fields.product_name,
+      unit_cost: fields.unit_cost,
+      quantity: fields.quantity,
+      created_by: userId,
+      updated_by: userId,
+    });
+
+    await newProduct.save();
+
+    return {
+      success: true,
+      message: "Outsourced product created successfully",
+      data: newProduct,
+      statusCode: 201,
+    };
+  } catch (error) {
+    console.error("addOutsourcedProduct error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
 export const updateProductOfInventory = async (productId, fields) => {
   try {
     // Validate if the product exists
@@ -416,7 +458,28 @@ export const getAllProducts = async (
 
 export const getAllProductsWithoutPagination = async () => {
   try {
-    const products = await Product.find({ isDeleted: false }, { name: 1 });
+    const products = await Product.aggregate([
+      {
+        $match: { isDeleted: false },
+      },
+      {
+        $lookup: {
+          from: "inventories",
+          localField: "_id",
+          foreignField: "product_id",
+          as: "inventory",
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          unit_cost: 1,
+          image: { $arrayElemAt: ["$images", 0] },
+          quantity: { $arrayElemAt: ["$inventory.quantity", 0] },
+        },
+      },
+    ]);
+
     return {
       success: true,
       data: products,
@@ -489,6 +552,41 @@ export const getProductDetails = async (productId) => {
     };
   } catch (error) {
     console.error("Error in getProductDetails => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const getOutsourcedProductsBasedOnSupplier = async (supplier_id) => {
+  try {
+    const products = await OutsourcedProduct.find({
+      supplier_id,
+      isDeleted: false,
+    },{
+      product_name:1,
+      unit_cost:1,
+      quantity:1,
+      isDeleted:1
+    });
+
+    if (!products) {
+      return {
+        success: false,
+        message: "No products found",
+        statusCode: 404,
+      };
+    }
+
+    return {
+      success: true,
+      data: products,
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("Error in getOutsourcedProductsBasedOnSupplier => ", error);
     return {
       success: false,
       message: "Internal server error",
