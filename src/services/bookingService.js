@@ -95,6 +95,36 @@ export const addBooking = async (fields, userId) => {
   }
 };
 
+export const updateBooking = async (id, data) => {
+  try {
+    const booking = await Booking.findByIdAndUpdate(id, data, {
+      new: true,
+    });
+
+    if (!booking) {
+      return {
+        success: false,
+        message: "Booking not found",
+        statusCode: 404,
+      };
+    }
+
+    return {
+      success: true,
+      message: "Booking updated successfully",
+      statusCode: 200,
+      data: booking,
+    };
+  } catch (error) {
+    console.error("updateBooking error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
 export const listBookings = async (
   page = 1,
   limit = 10,

@@ -163,6 +163,7 @@ export const getAuthToken = async (req, res) => {
       return {
         success: false,
         message: "No tokens provided",
+        sessionOut:true,
         statusCode: 401,
       };
     }
