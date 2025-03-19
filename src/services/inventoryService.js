@@ -1,6 +1,7 @@
 import Product from "../models/ProductSchema.js";
 import Inventory from "../models/InventorySchema.js";
 import OutsourcedProduct from "../models/OutsourcedProductSchema.js";
+import Category from "../models/CategorySchema.js";
 
 export const addProductToInventory = async (fields, files, userId) => {
   try {
@@ -471,17 +472,27 @@ export const getAllProductsWithoutPagination = async () => {
         },
       },
       {
+        $lookup: {
+          from: "categories",
+          localField: "category_id",
+          foreignField: "_id",
+          as: "category",
+        },
+      },
+      {
         $project: {
           name: 1,
           unit_cost: 1,
           image: { $arrayElemAt: ["$images", 0] },
           quantity: { $arrayElemAt: ["$inventory.quantity", 0] },
+          category_name: { $arrayElemAt: ["$category.name", 0] },
         },
       },
     ]);
 
     return {
       success: true,
+      message: "Products fetched successfully",
       data: products,
       statusCode: 200,
     };
