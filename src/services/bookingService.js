@@ -43,6 +43,28 @@ export const addBooking = async (fields, userId) => {
 
       user_id = newUser._id;
     }
+    const mergedItems = {};
+    fields.booking_items.forEach((item) => {
+      if (mergedItems[item.product_id]) {
+        mergedItems[item.product_id].quantity += item.quantity;
+        mergedItems[item.product_id].total_price += item.total_price;
+      } else {
+        mergedItems[item.product_id] = { ...item };
+      }
+    });
+    fields.booking_items = Object.values(mergedItems);
+
+    // Preprocess outsourced_items to merge duplicates
+    const mergedOutsourcedItems = {};
+    fields.outsourced_items?.forEach(item => {
+      if (mergedOutsourcedItems[item.out_product_id]) {
+        mergedOutsourcedItems[item.out_product_id].quantity += item.quantity;
+        mergedOutsourcedItems[item.out_product_id].total_price += item.total_price;
+      } else {
+        mergedOutsourcedItems[item.out_product_id] = { ...item };
+      }
+    });
+    fields.outsourced_items = Object.values(mergedOutsourcedItems);
 
     // Create the booking with the new user's ID
     const newBooking = new Booking({
@@ -97,14 +119,45 @@ export const addBooking = async (fields, userId) => {
 
 export const updateBooking = async (id, data) => {
   try {
-    const booking = await Booking.findByIdAndUpdate(id, data, {
-      new: true,
+    // Preprocess booking_items to merge duplicates
+    const mergedBookingItems = {};
+    data.booking_items.forEach(item => {
+      if (mergedBookingItems[item.product_id]) {
+        mergedBookingItems[item.product_id].quantity += item.quantity;
+        mergedBookingItems[item.product_id].total_price += item.total_price;
+      } else {
+        mergedBookingItems[item.product_id] = { ...item };
+      }
     });
+    data.booking_items = Object.values(mergedBookingItems);
+
+    // Preprocess outsourced_items to merge duplicates
+    const mergedOutsourcedItems = {};
+    data.outsourced_items?.forEach(item => {
+      if (mergedOutsourcedItems[item.out_product_id]) {
+        mergedOutsourcedItems[item.out_product_id].quantity += item.quantity;
+        mergedOutsourcedItems[item.out_product_id].total_price += item.total_price;
+      } else {
+        mergedOutsourcedItems[item.out_product_id] = { ...item };
+      }
+    });
+    data.outsourced_items = Object.values(mergedOutsourcedItems);
+
+    // Proceed with the update only if booking_date is not being updated
+    const booking = await Booking.findOneAndUpdate(
+      { 
+        _id: id, 
+        isDeleted: false,
+        booking_date: data?.booking_date || { $exists: true }
+      },
+      data,
+      { new: true }
+    );
 
     if (!booking) {
       return {
         success: false,
-        message: "Booking not found",
+        message: "Booking not found, has been deleted, or booking date should be the same",
         statusCode: 404,
       };
     }
@@ -112,8 +165,8 @@ export const updateBooking = async (id, data) => {
     return {
       success: true,
       message: "Booking updated successfully",
-      statusCode: 200,
       data: booking,
+      statusCode: 200,
     };
   } catch (error) {
     console.error("updateBooking error => ", error);

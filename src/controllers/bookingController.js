@@ -1,5 +1,5 @@
 import { sendResponse } from "../middlewares/responseHandler.js";
-import { addBooking, listBookings } from "../services/bookingService.js";
+import { addBooking, listBookings, updateBooking } from "../services/bookingService.js";
 
 export const addBookingController = async (req, res) => {
   try {
@@ -25,6 +25,23 @@ export const listBookingsController = async (req, res) => {
       search,
       type
     );
+
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const updateBookingController = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const response = await updateBooking(id,req?.body);
 
     sendResponse(
       res,
