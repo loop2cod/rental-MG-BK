@@ -56,10 +56,11 @@ export const addBooking = async (fields, userId) => {
 
     // Preprocess outsourced_items to merge duplicates
     const mergedOutsourcedItems = {};
-    fields.outsourced_items?.forEach(item => {
+    fields.outsourced_items?.forEach((item) => {
       if (mergedOutsourcedItems[item.out_product_id]) {
         mergedOutsourcedItems[item.out_product_id].quantity += item.quantity;
-        mergedOutsourcedItems[item.out_product_id].total_price += item.total_price;
+        mergedOutsourcedItems[item.out_product_id].total_price +=
+          item.total_price;
       } else {
         mergedOutsourcedItems[item.out_product_id] = { ...item };
       }
@@ -121,7 +122,7 @@ export const updateBooking = async (id, data) => {
   try {
     // Preprocess booking_items to merge duplicates
     const mergedBookingItems = {};
-    data.booking_items.forEach(item => {
+    data.booking_items.forEach((item) => {
       if (mergedBookingItems[item.product_id]) {
         mergedBookingItems[item.product_id].quantity += item.quantity;
         mergedBookingItems[item.product_id].total_price += item.total_price;
@@ -133,10 +134,11 @@ export const updateBooking = async (id, data) => {
 
     // Preprocess outsourced_items to merge duplicates
     const mergedOutsourcedItems = {};
-    data.outsourced_items?.forEach(item => {
+    data.outsourced_items?.forEach((item) => {
       if (mergedOutsourcedItems[item.out_product_id]) {
         mergedOutsourcedItems[item.out_product_id].quantity += item.quantity;
-        mergedOutsourcedItems[item.out_product_id].total_price += item.total_price;
+        mergedOutsourcedItems[item.out_product_id].total_price +=
+          item.total_price;
       } else {
         mergedOutsourcedItems[item.out_product_id] = { ...item };
       }
@@ -145,10 +147,10 @@ export const updateBooking = async (id, data) => {
 
     // Proceed with the update only if booking_date is not being updated
     const booking = await Booking.findOneAndUpdate(
-      { 
-        _id: id, 
+      {
+        _id: id,
         isDeleted: false,
-        booking_date: data?.booking_date || { $exists: true }
+        booking_date: data?.booking_date || { $exists: true },
       },
       data,
       { new: true }
@@ -157,7 +159,8 @@ export const updateBooking = async (id, data) => {
     if (!booking) {
       return {
         success: false,
-        message: "Booking not found, has been deleted, or booking date should be the same",
+        message:
+          "Booking not found, has been deleted, or booking date should be the same",
         statusCode: 404,
       };
     }
@@ -182,11 +185,12 @@ export const listBookings = async (
   page = 1,
   limit = 10,
   search = "",
-  type = "all"
+  type = "all",
+  status = "Pending"
 ) => {
   try {
     const skip = (page - 1) * limit;
-    const searchQuery = { $or: [] };
+    const searchQuery = { $or: [], status: status };
 
     // Apply expired filter
     if (type === "expired") {
@@ -198,10 +202,8 @@ export const listBookings = async (
     if (search) {
       // Search in string fields
       searchQuery.$or.push(
-        { "booking_items.name": { $regex: search, $options: "i" } } // Product name search
-      );
-      searchQuery.$or.push(
-        { "outsourced_items.name": { $regex: search, $options: "i" } } // Product name search
+        { "booking_items.name": { $regex: search, $options: "i" } },
+        { "outsourced_items.name": { $regex: search, $options: "i" } }
       );
 
       // Search in numeric fields if search is a number
@@ -227,6 +229,11 @@ export const listBookings = async (
           { booking_date: { $gte: startOfDay, $lte: endOfDay } }
         );
       }
+    }
+
+    // Ensure $or has at least one condition or remove it
+    if (searchQuery.$or.length === 0) {
+      delete searchQuery.$or;
     }
 
     // Fetch bookings with pagination
@@ -259,6 +266,90 @@ export const listBookings = async (
     };
   } catch (error) {
     console.error("listBookings error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const bookingView = async (id) => {
+  try {
+    const booking = await Booking.findById(id).populate(
+      "user_id",
+      "name mobile proof_type proof_id"
+    );
+    if (!booking) {
+      return {
+        success: false,
+        message: "Booking not found",
+        statusCode: 404,
+      };
+    }
+
+    return {
+      success: true,
+      message: "Booking fetched successfully",
+      data: booking,
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("bookingView error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const cancelBooking = async (id) => {
+  try {
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return {
+        success: false,
+        message: "Booking not found",
+        statusCode: 404,
+      };
+    }
+
+    // Check if the booking is already cancelled
+    if (booking?.status === "Cancelled") {
+      return {
+        success: false,
+        message: "Booking is already cancelled",
+        statusCode: 400,
+      };
+    }
+
+    // Update the booking status to cancelled
+    const updatedBooking = await Booking?.findByIdAndUpdate(
+      id,
+      {
+        status: "Cancelled",
+        updated_by: booking.user_id,
+      },
+      { new: true }
+    );
+
+    if (!updatedBooking) {
+      return {
+        success: false,
+        message: "Booking not found",
+        statusCode: 404,
+      };
+    }
+
+    return {
+      success: true,
+      message: "Booking cancelled successfully",
+      data: updatedBooking,
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("cancelBooking error => ", error);
     return {
       success: false,
       message: "Internal server error",

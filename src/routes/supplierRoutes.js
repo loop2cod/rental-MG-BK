@@ -2,6 +2,7 @@ import express from "express";
 import {
   addSupplier,
   getAllSuppliersWithoutPaginationController,
+  listSuppliersController,
 } from "../controllers/supplierController.js";
 import { isAuthenticated } from "../middlewares/authMiddleware.js";
 import { parseForm } from "../middlewares/parseFormMiddleware.js";
@@ -15,5 +16,6 @@ router.get(
   isAuthenticated,
   getAllSuppliersWithoutPaginationController
 );
+router.get("/list", isAuthenticated, listSuppliersController);
 
 export default router;

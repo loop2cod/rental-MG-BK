@@ -58,3 +58,48 @@ export const getAllSuppliersWithoutPagination = async () => {
     };
   }
 };
+
+export const getAllSuppliersWithPagination = async (
+  page = 1,
+  limit = 10,
+  search = ""
+) => {
+  try {
+    const skip = (page - 1) * limit;
+    const searchQuery = { isDeleted: false };
+
+    if (search !== "") {
+      searchQuery.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { contact: { $regex: search, $options: "i" } },
+        { address: { $regex: search, $options: "i" } },
+        { status: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const suppliers = await Supplier.find(searchQuery).skip(skip).limit(limit);
+
+    const totalSuppliers = await Supplier.countDocuments(searchQuery);
+
+    return {
+      success: true,
+      data: {
+        suppliers,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalSuppliers / limit),
+          totalItems: totalSuppliers,
+          itemsPerPage: limit,
+        },
+      },
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("getAllSuppliersWithPagination error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};

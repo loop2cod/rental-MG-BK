@@ -1,5 +1,11 @@
 import { sendResponse } from "../middlewares/responseHandler.js";
-import { addBooking, listBookings, updateBooking } from "../services/bookingService.js";
+import {
+  addBooking,
+  bookingView,
+  cancelBooking,
+  listBookings,
+  updateBooking,
+} from "../services/bookingService.js";
 
 export const addBookingController = async (req, res) => {
   try {
@@ -41,7 +47,7 @@ export const listBookingsController = async (req, res) => {
 export const updateBookingController = async (req, res) => {
   const { id } = req.params;
   try {
-    const response = await updateBooking(id,req?.body);
+    const response = await updateBooking(id, req?.body);
 
     sendResponse(
       res,
@@ -51,6 +57,40 @@ export const updateBookingController = async (req, res) => {
       response.data
     );
   } catch (error) {
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const getBookingDetailsController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const response = await bookingView(id);
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const cancelBookingController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const response = await cancelBooking(id);
+
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    console.log("cancelBookingController error => ", error);    
     sendResponse(res, 500, false, "Internal server error");
   }
 };
