@@ -41,9 +41,44 @@ export const createSupplier = async (fields, userId) => {
   }
 };
 
+export const updateSupplier = async (supplierId, supplier) => {
+  try {
+    const supplierToUpdate = await Supplier.findById(supplierId);
+    if (!supplierToUpdate) {
+      return {
+        success: false,
+        message: "Supplier not found",
+        statusCode: 404,
+      };
+    } else {
+      const updatedSupplier = await Supplier.findByIdAndUpdate(
+        supplierId,
+        supplier,
+        { new: true }
+      );
+      return {
+        success: true,
+        message: "Supplier updated",
+        data: updatedSupplier,
+        statusCode: 200,
+      };
+    }
+  } catch (error) {
+    console.error("updateSupplier error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
 export const getAllSuppliersWithoutPagination = async () => {
   try {
-    const suppliers = await Supplier.find({ isDeleted: false }, { name: 1 });
+    const suppliers = await Supplier.find(
+      { isDeleted: false, status: "Active" },
+      { name: 1 }
+    );
     return {
       success: true,
       data: suppliers,
@@ -66,7 +101,7 @@ export const getAllSuppliersWithPagination = async (
 ) => {
   try {
     const skip = (page - 1) * limit;
-    const searchQuery = { isDeleted: false };
+    const searchQuery = { isDeleted: false, status: "Active" };
 
     if (search !== "") {
       searchQuery.$or = [

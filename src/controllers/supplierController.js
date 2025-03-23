@@ -3,12 +3,32 @@ import {
   createSupplier,
   getAllSuppliersWithoutPagination,
   getAllSuppliersWithPagination,
+  updateSupplier,
 } from "../services/supplierService.js";
 
 export const addSupplier = async (req, res) => {
   try {
-    const { fields, user } = req;
-    const response = await createSupplier(fields, user?._id);
+    const { body, user } = req;
+    const response = await createSupplier(body, user?._id);
+
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const updateSupplierController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { body } = req;
+
+    const response = await updateSupplier(id, body);
 
     sendResponse(
       res,
