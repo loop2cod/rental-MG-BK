@@ -1,4 +1,5 @@
 import Booking from "../models/BookingSchema.js";
+import Inventory from "../models/InventorySchema.js";
 import User from "../models/UserSchema.js";
 import { addBookingPayment } from "./paymentServices.js";
 
@@ -296,6 +297,57 @@ export const bookingView = async (id) => {
     };
   } catch (error) {
     console.error("bookingView error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const bookingDetailsById = async (id) => {
+  try {
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return {
+        success: false,
+        message: "Booking not found",
+        statusCode: 404,
+      };
+    }
+    
+
+    // Map through booking items and attach inventory details
+    const bookingItemsWithInventory = await Promise.all(
+      booking.booking_items.map(async (item) => {
+        const inventory = await Inventory.findOne(
+          {
+            product_id: item.product_id,
+          },
+          { quantity: 1, reserved_quantity: 1, available_quantity: 1, _id: 0 }
+        );
+        
+
+        // Return the booking item with its inventory details
+        return {
+          ...item.toObject(),
+          ...inventory.toObject(),
+        };
+      })
+    );
+
+    // Return the booking with updated booking items
+    return {
+      success: true,
+      message: "Booking details fetched successfully",
+      data: {
+        ...booking.toObject(),
+        booking_items: bookingItemsWithInventory, // Replace original booking_items with the enhanced version
+      },
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("bookingViewById error => ", error);
     return {
       success: false,
       message: "Internal server error",

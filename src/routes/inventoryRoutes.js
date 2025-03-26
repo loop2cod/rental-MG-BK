@@ -6,6 +6,7 @@ import {
   deleteProduct,
   getAllOutsourcedProductsWithoutPaginationController,
   getAllProductsController,
+  getAllProductsWithAvailableQuantityController,
   getAllProductsWithoutPaginationController,
   getOutProductsBasedOnsupplierControler,
   getProductDetailsController,
@@ -62,6 +63,12 @@ router.get(
   "/list-outsourced/:supplier_id",
   isAuthenticated,
   getOutProductsBasedOnsupplierControler
+);
+
+router.get(
+  "/list-all-products-with-available-quantity",
+  isAuthenticated,
+  getAllProductsWithAvailableQuantityController
 );
 
 export default router;

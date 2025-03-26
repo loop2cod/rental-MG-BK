@@ -481,11 +481,20 @@ export const getAllProductsWithoutPagination = async () => {
       },
       {
         $project: {
+          _id: 1,
           name: 1,
+          description: 1,
           unit_cost: 1,
-          image: { $arrayElemAt: ["$images", 0] },
-          quantity: { $arrayElemAt: ["$inventory.quantity", 0] },
-          category_name: { $arrayElemAt: ["$category.name", 0] },
+          features: 1,
+          images: 1,
+          category_id: 1,
+          isDeleted: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          __v: 1,
+          quantity: "$inventory.quantity",
+          reserved_quantity: "$inventory.reserved_quantity",
+          category: 1
         },
       },
     ]);
@@ -573,15 +582,18 @@ export const getProductDetails = async (productId) => {
 
 export const getOutsourcedProductsBasedOnSupplier = async (supplier_id) => {
   try {
-    const products = await OutsourcedProduct.find({
-      supplier_id,
-      isDeleted: false,
-    },{
-      product_name:1,
-      unit_cost:1,
-      quantity:1,
-      isDeleted:1
-    });
+    const products = await OutsourcedProduct.find(
+      {
+        supplier_id,
+        isDeleted: false,
+      },
+      {
+        product_name: 1,
+        unit_cost: 1,
+        quantity: 1,
+        isDeleted: 1,
+      }
+    );
 
     if (!products) {
       return {
@@ -606,3 +618,58 @@ export const getOutsourcedProductsBasedOnSupplier = async (supplier_id) => {
   }
 };
 
+export const getAllProductsWithAvailableQuantity = async () => {
+  try {
+    const products = await Product.aggregate([
+      {
+        $match: { isDeleted: false },
+      },
+      {
+        $lookup: {
+          from: "inventories",
+          localField: "_id",
+          foreignField: "product_id",
+          as: "inventory",
+        },
+      },
+      { $unwind: "$inventory" },
+      {
+        $lookup: {
+          from: "categories",
+          localField: "category_id",
+          foreignField: "_id",
+          as: "category",
+        },
+      },
+      { $unwind: "$category" },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          description: 1,
+          unit_cost: 1,
+          features: 1,
+          images: 1,
+          category: "$category.name",
+          isDeleted: 1,
+          quantity: "$inventory.quantity",
+          reserved_quantity: "$inventory.reserved_quantity",
+          available_quantity: "$inventory.available_quantity",
+        }
+      }
+    ]);
+
+    return {
+      success: true,
+      data: products,
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("getAllProductsWithAvailableQuantity error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};

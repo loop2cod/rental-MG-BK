@@ -9,6 +9,7 @@ import {
   getProductDetails,
   addOutsourcedProduct,
   getOutsourcedProductsBasedOnSupplier,
+  getAllProductsWithAvailableQuantity,
 } from "../services/inventoryService.js";
 
 export const addProduct = async (req, res) => {
@@ -155,6 +156,23 @@ export const getOutProductsBasedOnsupplierControler = async (req, res) => {
     );
   } catch (error) {
     console.log("getProductDetailsController error => ", error);
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const getAllProductsWithAvailableQuantityController = async (req, res) => {
+  try {
+    const response = await getAllProductsWithAvailableQuantity();
+
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    console.log("getAllProductsWithAvailableQuantityController error => ", error);
     sendResponse(res, 500, false, "Internal server error");
   }
 };
