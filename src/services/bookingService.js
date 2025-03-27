@@ -1,10 +1,15 @@
 import Booking from "../models/BookingSchema.js";
 import Inventory from "../models/InventorySchema.js";
 import User from "../models/UserSchema.js";
-import { addBookingPayment } from "./paymentServices.js";
+import mongoose from "mongoose";
+import Payment from "../models/PaymentSchema.js";
 
 export const addBooking = async (fields, userId) => {
+  const session = await mongoose.startSession();
+
   try {
+    session.startTransaction();
+
     let user_id;
     // Generate a default password using the current date and time
     const currentDate = new Date();
@@ -17,15 +22,25 @@ export const addBooking = async (fields, userId) => {
       currentDate.getMinutes()
     ).padStart(2, "0")}`;
 
-    const isUserExists = await User.findOne({ mobile: fields.user_phone });
+    // Find or Create User within transaction
+    const isUserExists = await User.findOne(
+      { mobile: fields.user_phone },
+      null,
+      { session }
+    );
+
     if (isUserExists) {
       user_id = isUserExists._id;
       if (isUserExists?.name !== fields.user_name) {
         // Update the user name
-        await User.findByIdAndUpdate(user_id, {
-          name: fields.user_name,
-          updated_by: userId,
-        });
+        await User.findByIdAndUpdate(
+          user_id,
+          {
+            name: fields.user_name,
+            updated_by: userId,
+          },
+          { session }
+        );
       }
     } else {
       // Create the user first
@@ -40,7 +55,7 @@ export const addBooking = async (fields, userId) => {
         updated_by: userId,
       });
 
-      await newUser.save();
+      await newUser.save({ session });
 
       user_id = newUser._id;
     }
@@ -85,17 +100,26 @@ export const addBooking = async (fields, userId) => {
       updated_by: userId,
     });
 
-    await newBooking.save();
+    await newBooking.save({ session });
+    let paymentState =
+      fields.amount_paid < fields.total_amount ? "partial" : "complete";
 
-    const payment = await addBookingPayment(
-      newBooking._id,
-      fields.amount_paid,
-      fields.total_amount,
-      fields.payment_method,
-      userId
-    );
+    // Create payment directly
+    const newPayment = new Payment({
+      booking_id: newBooking._id,
+      user_id: userId,
+      amount: fields.amount_paid,
+      payment_method: fields.payment_method,
+      payment_state: paymentState,
+      status: "success",
+      stage: "booking",
+      createdBy: userId,
+      updatedBy: userId,
+    });
+    await newPayment.save({ session });
 
-    if (!payment) {
+    if (!newPayment) {
+      await session.abortTransaction();
       return {
         success: false,
         message: "Payment creation failed",
@@ -103,25 +127,48 @@ export const addBooking = async (fields, userId) => {
       };
     }
 
+    await session.commitTransaction();
     return {
       success: true,
-      message: "Booking created successfully",
+      message: "Booking  created successfully",
+      data: { booking: newBooking, payment: newPayment },
       statusCode: 201,
-      data: newBooking,
     };
   } catch (error) {
+    await session.abortTransaction();
     console.error("addBooking error => ", error);
     return {
       success: false,
       message: "Internal server error",
       statusCode: 500,
     };
+  } finally {
+    session.endSession();
   }
 };
 
 export const updateBooking = async (id, data) => {
+  const session = await mongoose.startSession();
+
   try {
-    // Preprocess booking_items to merge duplicates
+    session.startTransaction();
+
+    // Retrieve the current booking
+    const currentBooking = await Booking.findById(id);
+
+    // Calculate the new potential amount paid
+    const newAmountPaid = currentBooking.amount_paid + data.amount_paid;
+
+    // Check if the new amount paid exceeds the total amount
+    if (newAmountPaid > currentBooking.total_amount) {
+      return {
+        success: false,
+        message: "Amount exceeds the total amount payable",
+        statusCode: 400,
+      };
+    }
+
+    // Merge booking items
     const mergedBookingItems = {};
     data.booking_items.forEach((item) => {
       if (mergedBookingItems[item.product_id]) {
@@ -146,18 +193,19 @@ export const updateBooking = async (id, data) => {
     });
     data.outsourced_items = Object.values(mergedOutsourcedItems);
 
-    // Proceed with the update only if booking_date is not being updated
-    const booking = await Booking.findOneAndUpdate(
+    // Find booking within transaction
+    const booking = await Booking.findOne(
       {
         _id: id,
         isDeleted: false,
         booking_date: data?.booking_date || { $exists: true },
       },
-      data,
-      { new: true }
+      null,
+      { session }
     );
 
     if (!booking) {
+      await session.abortTransaction();
       return {
         success: false,
         message:
@@ -166,19 +214,36 @@ export const updateBooking = async (id, data) => {
       };
     }
 
+    // Proceed with the update if the validation passes
+    const updatedBooking = await Booking.findOneAndUpdate(
+      { _id: id },
+      { 
+        ...data,
+        $inc: { amount_paid: +data.amount_paid }
+      },
+      {
+        new: true,
+        session,
+      }
+    );
+
+    await session.commitTransaction();
     return {
       success: true,
       message: "Booking updated successfully",
-      data: booking,
+      data: updatedBooking,
       statusCode: 200,
     };
   } catch (error) {
+    await session.abortTransaction();
     console.error("updateBooking error => ", error);
     return {
       success: false,
       message: "Internal server error",
       statusCode: 500,
     };
+  } finally {
+    session.endSession();
   }
 };
 
@@ -315,7 +380,6 @@ export const bookingDetailsById = async (id) => {
         statusCode: 404,
       };
     }
-    
 
     // Map through booking items and attach inventory details
     const bookingItemsWithInventory = await Promise.all(
@@ -326,7 +390,6 @@ export const bookingDetailsById = async (id) => {
           },
           { quantity: 1, reserved_quantity: 1, available_quantity: 1, _id: 0 }
         );
-        
 
         // Return the booking item with its inventory details
         return {
@@ -356,7 +419,7 @@ export const bookingDetailsById = async (id) => {
   }
 };
 
-export const cancelBooking = async (id) => {
+export const cancelBooking = async (id, remarks) => {
   try {
     const booking = await Booking.findById(id);
     if (!booking) {
@@ -381,6 +444,7 @@ export const cancelBooking = async (id) => {
       id,
       {
         status: "Cancelled",
+        remarks: remarks,
         updated_by: booking.user_id,
       },
       { new: true }

@@ -88,7 +88,15 @@ export const validateBooking = [
   // Validate amount_paid
   body("amount_paid")
     .notEmpty()
-    .withMessage("amount_paid is required"),
+    .withMessage("amount_paid is required")
+    .isFloat({ gt: 0 })
+    .withMessage("amount_paid must be a positive number")
+    .custom((value, { req }) => {
+      if (value > req.body.total_amount) {
+        throw new Error("amount_paid must be less than or equal to total_amount");
+      }
+      return true;
+    }),
 
   // Validate payment_method
   body("payment_method")

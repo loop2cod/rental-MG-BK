@@ -97,7 +97,8 @@ export const bookingViewByIdController = async (req, res) => {
 export const cancelBookingController = async (req, res) => {
   try {
     const { id } = req.params;
-    const response = await cancelBooking(id);
+    const { remarks } = req.body;
+    const response = await cancelBooking(id, remarks);
 
     sendResponse(
       res,
@@ -107,7 +108,7 @@ export const cancelBookingController = async (req, res) => {
       response.data
     );
   } catch (error) {
-    console.log("cancelBookingController error => ", error);    
+    console.log("cancelBookingController error => ", error);
     sendResponse(res, 500, false, "Internal server error");
   }
 };

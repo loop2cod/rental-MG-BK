@@ -9,6 +9,7 @@ import inventoryRoutes from "./src/routes/inventoryRoutes.js";
 import categoryRoutes from "./src/routes/categoryRoutes.js";
 import supplierRoutes from "./src/routes/supplierRoutes.js";
 import bookingRoutes from "./src/routes/bookingRoutes.js";
+import orderRoutes from "./src/routes/orderRoutes.js";
 import cookieParser from "cookie-parser";
 import formidable from "express-formidable";
 
@@ -38,6 +39,7 @@ app.use("/api/v1/inventory", inventoryRoutes);
 app.use("/api/v1/category", categoryRoutes);
 app.use("/api/v1/supplier", supplierRoutes);
 app.use("/api/v1/booking", bookingRoutes);
+app.use("/api/v1/order", orderRoutes);
 
 
 const PORT = process.env.PORT || 5000;

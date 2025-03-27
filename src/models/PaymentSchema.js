@@ -9,7 +9,7 @@ const PaymentSchema = new mongoose.Schema(
       type: String,
       enum: ["credit_card", "debit_card", "upi", "net_banking", "cash"],
       required: true,
-    },
+    },  
     transaction_id: { type: String },
     payment_state: {
       type: String,
@@ -20,6 +20,11 @@ const PaymentSchema = new mongoose.Schema(
       type: String,
       enum: ["pending", "success", "failed", "refunded"],
       default: "pending",
+    },
+    stage: {
+      type: String,
+      enum: ["booking", "order", "return", "other"],
+      default: "other",
     },
     payment_date: { type: Date, default: Date.now },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

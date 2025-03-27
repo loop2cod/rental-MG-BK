@@ -38,6 +38,7 @@ const BookingSchema = new mongoose.Schema(
     amount_paid: Number,
     discount: Number,
     total_amount: Number,
+    remarks: String,
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     isDeleted: { type: Boolean, default: false },
