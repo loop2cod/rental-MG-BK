@@ -1,9 +1,9 @@
 import { sendResponse } from "../middlewares/responseHandler.js";
-import { createOrder, updateOrder } from "../services/orderService.js";
+import { addPayment, updatePayment } from "../services/paymentServices.js";
 
-export const createOrderController = async (req, res) => {
+export const addPaymentController = async (req, res) => {
   try {
-    const response = await createOrder(req?.body);
+    const response = await addPayment(req?.body, req.user?.userId);
 
     sendResponse(
       res,
@@ -17,9 +17,9 @@ export const createOrderController = async (req, res) => {
   }
 };
 
-export const updateOrderController = async (req, res) => {
+export const updatePaymentController = async (req, res) => {
   try {
-    const response = await updateOrder(req?.body, req.user?._id);
+    const response = await updatePayment(req?.body, req.user?.userId);
 
     sendResponse(
       res,

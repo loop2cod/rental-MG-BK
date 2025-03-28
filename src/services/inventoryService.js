@@ -86,7 +86,6 @@ export const addOutsourcedProduct = async (fields, userId) => {
       supplier_id: fields.supplier_id,
       product_name: fields.product_name,
       unit_cost: fields.unit_cost,
-      quantity: fields.quantity,
       created_by: userId,
       updated_by: userId,
     });

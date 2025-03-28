@@ -90,6 +90,7 @@ export const addBooking = async (fields, userId) => {
       to_date: fields.to_date,
       from_time: fields.from_time,
       to_time: fields.to_time,
+      no_of_days: fields.no_of_days,
       booking_date: fields.booking_date,
       booking_items: fields.booking_items,
       outsourced_items: fields.outsourced_items,
@@ -101,32 +102,6 @@ export const addBooking = async (fields, userId) => {
     });
 
     await newBooking.save({ session });
-    let paymentState =
-      fields.amount_paid < fields.total_amount ? "partial" : "complete";
-
-    // Create payment directly
-    const newPayment = new Payment({
-      booking_id: newBooking._id,
-      user_id: userId,
-      amount: fields.amount_paid,
-      payment_method: fields.payment_method,
-      payment_state: paymentState,
-      status: "success",
-      stage: "booking",
-      createdBy: userId,
-      updatedBy: userId,
-    });
-    await newPayment.save({ session });
-
-    if (!newPayment) {
-      await session.abortTransaction();
-      return {
-        success: false,
-        message: "Payment creation failed",
-        statusCode: 500,
-      };
-    }
-
     await session.commitTransaction();
     return {
       success: true,

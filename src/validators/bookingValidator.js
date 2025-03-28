@@ -72,11 +72,41 @@ export const validateBooking = [
     .isArray()
     .withMessage("booking_items must be an array"),
 
-    // Validate outsourced_items
+  // Validate outsourced_items
   body("outsourced_items")
     .optional()
     .isArray()
     .withMessage("outsourced_items must be an array"),
+
+  body("no_of_days")
+    .notEmpty()
+    .withMessage("no_of_days is required")
+    .isFloat({ gt: 0 })
+    .withMessage("no_of_days must be a positive integer"),
+
+  body("from_date")
+    .notEmpty()
+    .withMessage("from_date is required")
+    .isDate({ format: "YYYY-MM-DD" })
+    .withMessage("from_date must be in YYYY-MM-DD format"),
+
+  body("to_date")
+    .notEmpty()
+    .withMessage("to_date is required")
+    .isDate({ format: "YYYY-MM-DD" })
+    .withMessage("to_date must be in YYYY-MM-DD format"),
+
+  body("from_time")
+    .notEmpty()
+    .withMessage("from_time is required")
+    .matches(/^\d{2}:\d{2}$/)
+    .withMessage("from_time must be in HH:MM format"),
+
+  body("to_time")
+    .notEmpty()
+    .withMessage("to_time is required")
+    .matches(/^\d{2}:\d{2}$/)
+    .withMessage("to_time must be in HH:MM format"),
 
   // Validate total_quantity
   body("total_quantity")
@@ -89,11 +119,11 @@ export const validateBooking = [
   body("amount_paid")
     .notEmpty()
     .withMessage("amount_paid is required")
-    .isFloat({ gt: 0 })
-    .withMessage("amount_paid must be a positive number")
     .custom((value, { req }) => {
       if (value > req.body.total_amount) {
-        throw new Error("amount_paid must be less than or equal to total_amount");
+        throw new Error(
+          "amount_paid must be less than or equal to total_amount"
+        );
       }
       return true;
     }),

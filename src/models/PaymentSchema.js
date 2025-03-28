@@ -9,8 +9,14 @@ const PaymentSchema = new mongoose.Schema(
       type: String,
       enum: ["credit_card", "debit_card", "upi", "net_banking", "cash"],
       required: true,
-    },  
+    },
     transaction_id: { type: String },
+    transaction_type: {
+      type: String,
+      required: true,
+      enum: ["debit", "credit"],
+      default: "credit",
+    },
     payment_state: {
       type: String,
       enum: ["partial", "complete"],

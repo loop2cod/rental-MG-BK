@@ -22,12 +22,6 @@ export const validateOutProduct = [
     .isFloat({ gt: 0 })
     .withMessage("Unit cost must be a positive number"),
 
-  // Validate quantity
-  body("quantity")
-    .notEmpty()
-    .withMessage("Quantity is required")
-    .isInt({ gt: 0 })
-    .withMessage("Quantity must be a positive integer"),
 
   // Handle validation errors
   (req, res, next) => {

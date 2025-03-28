@@ -3,7 +3,21 @@ import Inventory from "../models/InventorySchema.js";
 import Booking from "../models/BookingSchema.js";
 import mongoose from "mongoose";
 
-export const createOrder = async (order) => {
+export const createOrder = async (orderData) => {
+  // Destructure all values from order
+  let {
+    booking_id,
+    order_id,
+    user_id,
+    order_date,
+    order_items,
+    no_of_days,
+    outsourced_items,
+    total_amount,
+    created_by,
+    updated_by,
+  } = orderData;
+
   // Start a session
   const session = await mongoose.startSession();
 
@@ -14,7 +28,7 @@ export const createOrder = async (order) => {
     // All operations within the transaction
     const isBookingAvailable = await Booking.findOne(
       {
-        _id: order?.booking_id,
+        _id: booking_id,
         isDeleted: false,
       },
       null,
@@ -32,8 +46,9 @@ export const createOrder = async (order) => {
 
     
 
+    // Check stock availability
     const checkStockAvailability = await Promise.all(
-      order?.order_items.map(async (item) => {
+      order_items.map(async (item) => {
         const inventory = await Inventory.findOne(
           { product_id: item.product_id },
           { quantity: 1, reserved_quantity: 1, available_quantity: 1, _id: 0 },
@@ -74,9 +89,33 @@ export const createOrder = async (order) => {
       };
     }
 
+    const mergedOrderItems = {};
+    order_items.forEach((item) => {
+      if (mergedOrderItems[item.product_id]) {
+        mergedOrderItems[item.product_id].quantity += item.quantity;
+        mergedOrderItems[item.product_id].total_price += item.total_price;
+      } else {
+        mergedOrderItems[item.product_id] = { ...item };
+      }
+    });
+    order_items = Object.values(mergedOrderItems);
+
+    // Preprocess outsourced_items to merge duplicates
+    const mergedOutsourcedItems = {};
+    outsourced_items?.forEach((item) => {
+      if (mergedOutsourcedItems[item.out_product_id]) {
+        mergedOutsourcedItems[item.out_product_id].quantity += item.quantity;
+        mergedOutsourcedItems[item.out_product_id].total_price +=
+          item.total_price;
+      } else {
+        mergedOutsourcedItems[item.out_product_id] = { ...item };
+      }
+    });
+    outsourced_items = Object.values(mergedOutsourcedItems);
+
     // Update inventory quantities
     await Promise.all(
-      order.order_items.map(async (item) => {
+      order_items.map(async (item) => {
         await Inventory.findOneAndUpdate(
           { product_id: item.product_id },
           {
@@ -92,7 +131,7 @@ export const createOrder = async (order) => {
 
     // Update booking status
     const updateBooking = await Booking.findByIdAndUpdate(
-      order?.booking_id,
+      booking_id,
       {
         status: "Success",
       },
@@ -101,14 +140,17 @@ export const createOrder = async (order) => {
 
     // Create new order
     const newOrder = new Order({
-      order_id: order?.order_id,
-      user_id: order?.user_id,
-      order_date: order?.order_date,
-      order_items: order?.order_items,
-      outsourced_items: order?.outsourced_items,
-      total_amount: order?.total_amount,
-      created_by: order?.created_by,
-      updated_by: order?.updated_by,
+      order_id,
+      booking_id,
+      user_id,
+      order_date,
+      order_items,
+      outsourced_items,
+      total_amount,
+      no_of_days,
+      // amount_paid:totalAmountPaid,
+      created_by,
+      updated_by,
     });
 
     await newOrder.save({ session });
@@ -200,6 +242,30 @@ export const updateOrder = async (orderId, orderUpdates) => {
       };
     }
 
+    const mergedOrderItems = {};
+    orderUpdates.order_items.forEach((item) => {
+      if (mergedOrderItems[item.product_id]) {
+        mergedOrderItems[item.product_id].quantity += item.quantity;
+        mergedOrderItems[item.product_id].total_price += item.total_price;
+      } else {
+        mergedOrderItems[item.product_id] = { ...item };
+      }
+    });
+    orderUpdates.order_items = Object.values(mergedOrderItems);
+
+    // Preprocess outsourced_items to merge duplicates
+    const mergedOutsourcedItems = {};
+    orderUpdates.outsourced_items?.forEach((item) => {
+      if (mergedOutsourcedItems[item.out_product_id]) {
+        mergedOutsourcedItems[item.out_product_id].quantity += item.quantity;
+        mergedOutsourcedItems[item.out_product_id].total_price +=
+          item.total_price;
+      } else {
+        mergedOutsourcedItems[item.out_product_id] = { ...item };
+      }
+    });
+    orderUpdates.outsourced_items = Object.values(mergedOutsourcedItems);
+
     // Update inventory quantities
     await Promise.all(
       orderUpdates.order_items.map(async (item) => {
@@ -225,27 +291,6 @@ export const updateOrder = async (orderId, orderUpdates) => {
       },
       { new: true, session }
     );
-
-    // Optionally update payment if amount changes
-    if (orderUpdates.amount_paid !== existingOrder.amount_paid) {
-      const payment = await addOrderPayment(
-        existingOrder.booking_id,
-        orderUpdates.amount_paid,
-        orderUpdates.total_amount,
-        orderUpdates.payment_method || "cash",
-        orderUpdates.user_id,
-        session
-      );
-
-      if (!payment || payment.success === false) {
-        await session.abortTransaction();
-        return {
-          success: false,
-          message: "Payment update failed",
-          statusCode: 500,
-        };
-      }
-    }
 
     await session.commitTransaction();
     return {
