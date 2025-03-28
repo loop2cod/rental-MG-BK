@@ -6,23 +6,23 @@ const OrderSchema = new mongoose.Schema(
     booking_id: { type: mongoose.Schema.Types.ObjectId, ref: "Booking" },
     from_date: {
       type: Date,
-      required: [true, 'from_date is required']
+      required: [true, "from_date is required"],
     },
     to_date: {
       type: Date,
-      required: [true, 'to_date is required']
+      required: [true, "to_date is required"],
     },
     from_time: {
       type: String,
-      required: [true, 'from_time is required']
+      required: [true, "from_time is required"],
     },
     to_time: {
       type: String,
-      required: [true, 'to_time is required']
+      required: [true, "to_time is required"],
     },
     no_of_days: {
       type: Number,
-      required: [true, 'no_of_days is required']
+      required: [true, "no_of_days is required"],
     },
     order_date: { type: Date, default: Date.now },
     total_amount: { type: Number, required: true },
@@ -52,6 +52,21 @@ const OrderSchema = new mongoose.Schema(
       {
         product_id: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
         quantity: Number,
+        dispatch_date: { type: Date, required: true },
+        dispatch_time: { type: String, required: true },
+        dispatched_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Who dispatched it
+      },
+    ],
+    outsourced_dispatch_items: [
+      {
+        out_product_id: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "OutsourcedProduct",
+        },
+        quantity: Number,
+        dispatch_date: { type: Date, required: true },
+        dispatch_time: { type: String, required: true },
+        dispatched_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
       },
     ],
     total_quantity: Number,
@@ -66,5 +81,6 @@ const OrderSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
 
 export default mongoose.model("Order", OrderSchema);

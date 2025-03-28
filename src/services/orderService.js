@@ -49,8 +49,6 @@ export const createOrder = async (orderData) => {
       };
     }
 
-    
-
     // Check stock availability
     const checkStockAvailability = await Promise.all(
       order_items.map(async (item) => {
@@ -317,5 +315,175 @@ export const updateOrder = async (orderId, orderUpdates) => {
     };
   } finally {
     session.endSession();
+  }
+};
+
+export const getOrderDetails = async (id) => {
+  try {
+    const order = await Order.findById(id).populate({
+      path: "user_id",
+      select: "name mobile",
+    });
+    if (!order) {
+      return {
+        success: false,
+        message: "Order not found",
+        statusCode: 404,
+      };
+    }
+
+    // Map through order items and attach inventory details
+    const orderItemsWithInventory = await Promise.all(
+      order.order_items.map(async (item) => {
+        const inventory = await Inventory.findOne(
+          { product_id: item.product_id },
+          { quantity: 1, reserved_quantity: 1, available_quantity: 1, _id: 0 }
+        );
+
+        // Return the order item with its inventory details
+        return {
+          ...item.toObject(),
+          ...inventory.toObject(),
+        };
+      })
+    );
+
+    // Return order details with updated order items
+    return {
+      success: true,
+      data: {
+        ...order.toObject(),
+        order_items: orderItemsWithInventory, // Replace original order_items with the enhanced version
+      },
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("Error in getOrderDetails => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const getOrderListWithPaginationAndSearch = async (
+  page,
+  limit,
+  search
+) => {
+  try {
+    let orders;
+    let totalOrders;
+    const query = {};
+
+    // Check if search is a valid ObjectId (for user_id & booking_id)
+    const isObjectId = mongoose.Types.ObjectId.isValid(search);
+
+    // Check if search is a number (for total_amount and total_quantity)
+    const isNumber = !isNaN(search);
+
+    // Check if search is a valid date
+    const isValidDate = !isNaN(Date.parse(search));
+
+    if (search) {
+      query.$or = [
+        {
+          order_items: {
+            $elemMatch: { name: { $regex: search, $options: "i" } },
+          },
+        },
+        {
+          outsourced_items: {
+            $elemMatch: { name: { $regex: search, $options: "i" } },
+          },
+        },
+        { status: { $regex: search, $options: "i" } },
+        { from_time: { $regex: search, $options: "i" } },
+        { to_time: { $regex: search, $options: "i" } },
+      ];
+
+      if (isObjectId) {
+        query.$or.push({ user_id: search }, { booking_id: search });
+      }
+
+      if (isNumber) {
+        query.$or.push(
+          { total_amount: Number(search) }, // Exact match for total_amount
+          { total_quantity: Number(search) }, // Exact match for total_quantity
+          { amount_paid: Number(search) }, // Exact match for amount_paid
+          { no_of_days: Number(search) },
+          { order_items: { $elemMatch: { quantity: Number(search) } } },
+          { order_items: { $elemMatch: { price: Number(search) } } },
+          { order_items: { $elemMatch: { total_price: Number(search) } } },
+          { outsourced_items: { $elemMatch: { quantity: Number(search) } } },
+          { outsourced_items: { $elemMatch: { price: Number(search) } } },
+          { outsourced_items: { $elemMatch: { total_price: Number(search) } } }
+        );
+      }
+
+      if (isValidDate) {
+        const dateSearch = new Date(search);
+        query.$or.push(
+          {
+            order_date: {
+              $gte: dateSearch,
+              $lt: new Date(dateSearch.getTime() + 24 * 60 * 60 * 1000),
+            },
+          },
+          {
+            booking_date: {
+              $gte: dateSearch,
+              $lt: new Date(dateSearch.getTime() + 24 * 60 * 60 * 1000),
+            },
+          },
+          {
+            from_date: {
+              $gte: dateSearch,
+              $lt: new Date(dateSearch.getTime() + 24 * 60 * 60 * 1000),
+            },
+          },
+          {
+            to_date: {
+              $gte: dateSearch,
+              $lt: new Date(dateSearch.getTime() + 24 * 60 * 60 * 1000),
+            },
+          }
+        );
+      }
+    }
+
+    orders = await Order.find(query)
+      .populate({
+        path: "user_id",
+        select: "name mobile",
+      })
+      .sort({ order_date: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    totalOrders = await Order.countDocuments(query);
+
+    return {
+      success: true,
+      message: "Orders fetched successfully",
+      data: {
+        orders,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalOrders / limit),
+          totalOrders,
+          itemsPerPage: limit,
+        },
+      },
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("Error in getOrderListWithPaginationAndSearch => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
   }
 };

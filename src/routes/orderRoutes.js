@@ -2,7 +2,10 @@ import express from "express";
 import { isAuthenticated } from "../middlewares/authMiddleware.js";
 import {
   createOrderController,
+  getOrderDetailsController,
+  getOrdersWithPaginationSearchController,
   updateOrderController,
+
 } from "../controllers/orderController.js";
 import { validateOrder } from "../validators/orderValidator.js";
 
@@ -15,5 +18,7 @@ router.put(
   validateOrder,
   updateOrderController
 );
+router.get("/details/:id", isAuthenticated, getOrderDetailsController);
+router.get("/get-orders", isAuthenticated, getOrdersWithPaginationSearchController);
 
 export default router;
