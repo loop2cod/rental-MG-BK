@@ -16,6 +16,11 @@ export const createOrder = async (orderData) => {
     total_amount,
     created_by,
     updated_by,
+    from_date,
+    to_date,
+    from_time,
+    to_time,
+    amount_paid,
   } = orderData;
 
   // Start a session
@@ -140,7 +145,6 @@ export const createOrder = async (orderData) => {
 
     // Create new order
     const newOrder = new Order({
-      order_id,
       booking_id,
       user_id,
       order_date,
@@ -148,7 +152,11 @@ export const createOrder = async (orderData) => {
       outsourced_items,
       total_amount,
       no_of_days,
-      // amount_paid:totalAmountPaid,
+      from_date,
+      to_date,
+      from_time,
+      to_time,
+      // amount_paid,
       created_by,
       updated_by,
     });

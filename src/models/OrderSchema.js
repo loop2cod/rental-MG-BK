@@ -26,7 +26,7 @@ const OrderSchema = new mongoose.Schema(
     },
     order_date: { type: Date, default: Date.now },
     total_amount: { type: Number, required: true },
-    amount_paid: { type: Number, required: true },
+    amount_paid: { type: Number },
     order_items: [
       {
         product_id: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },

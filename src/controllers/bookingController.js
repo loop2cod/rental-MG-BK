@@ -19,6 +19,7 @@ export const addBookingController = async (req, res) => {
       response.data
     );
   } catch (error) {
+    console.log("addBookingController error: ", error);    
     sendResponse(res, 500, false, "Internal server error");
   }
 };

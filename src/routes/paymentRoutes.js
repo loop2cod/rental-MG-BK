@@ -5,6 +5,6 @@ import { addPaymentController, updatePaymentController } from "../controllers/pa
 const router = express.Router();
 
 router.post("/add", isAuthenticated, addPaymentController);
-router.put("/update/:id", isAuthenticated, updatePaymentController);
+router.put("/update", isAuthenticated, updatePaymentController);
 
 export default router;

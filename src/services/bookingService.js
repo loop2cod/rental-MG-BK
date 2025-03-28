@@ -106,7 +106,7 @@ export const addBooking = async (fields, userId) => {
     return {
       success: true,
       message: "Booking  created successfully",
-      data: { booking: newBooking, payment: newPayment },
+      data: { booking: newBooking },
       statusCode: 201,
     };
   } catch (error) {
@@ -130,12 +130,19 @@ export const updateBooking = async (id, data) => {
 
     // Retrieve the current booking
     const currentBooking = await Booking.findById(id);
+    if (!currentBooking) {
+      return {
+        success: false,
+        message: "Booking not found",
+        statusCode: 404,
+      };
+    }
 
     // Calculate the new potential amount paid
-    const newAmountPaid = currentBooking.amount_paid + data.amount_paid;
+    const newAmountPaid = currentBooking?.amount_paid + data?.amount_paid;
 
     // Check if the new amount paid exceeds the total amount
-    if (newAmountPaid > currentBooking.total_amount) {
+    if (newAmountPaid > currentBooking?.total_amount) {
       return {
         success: false,
         message: "Amount exceeds the total amount payable",
@@ -189,18 +196,13 @@ export const updateBooking = async (id, data) => {
       };
     }
 
+    data.amount_paid = currentBooking?.amount_paid;
+
     // Proceed with the update if the validation passes
-    const updatedBooking = await Booking.findOneAndUpdate(
-      { _id: id },
-      { 
-        ...data,
-        $inc: { amount_paid: +data.amount_paid }
-      },
-      {
-        new: true,
-        session,
-      }
-    );
+    const updatedBooking = await Booking.findOneAndUpdate({ _id: id }, data, {
+      new: true,
+      session,
+    });
 
     await session.commitTransaction();
     return {

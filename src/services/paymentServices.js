@@ -45,12 +45,17 @@ export const addPayment = async (body, user_id) => {
 
       const balanceAmount =
         Number(isOrderAvailable?.total_amount) - Number(totalAmountPaid);
+      console.log("totalamount=>", isOrderAvailable?.total_amount);
+      console.log("totalamountpaid=>", totalAmountPaid);
+      console.log("balanceAmount=>", balanceAmount);
+      
 
       if (amount_paid > balanceAmount) {
         await session.abortTransaction();
         return {
           success: false,
           message: `Amount paid exceeds the balance amount of ${balanceAmount}`,
+          data: balanceAmount,
           statusCode: 400,
         };
       }
@@ -124,7 +129,7 @@ export const addPayment = async (body, user_id) => {
       await newPayment.save({ session });
 
       const updateOrder = await Order.findByIdAndUpdate(
-        { order_id: isOrderAvailable?._id },
+        isOrderAvailable?._id,
         {
           amount_paid: totalAmountPaid,
           total_amount: total_amount,
@@ -260,7 +265,7 @@ export const updatePayment = async (body, user_id) => {
       await newPayment.save({ session });
 
       const updateOrder = await Order.findByIdAndUpdate(
-        { order_id: isOrderAvailable?._id },
+        isOrderAvailable?._id,
         {
           $inc: { amount_paid: +amount_paid },
           total_amount: total_amount,
@@ -300,6 +305,16 @@ export const updatePayment = async (body, user_id) => {
         };
       }
     }
+
+    const updateBooking = await Booking.findByIdAndUpdate(
+      isBookingAvailable?._id,
+      {
+        $inc: { amount_paid: +amount_paid },
+        total_amount: total_amount,
+        updated_by: user_id,
+      },
+      { new: true, session }
+    );
 
     let paymentState = amount_paid < total_amount ? "partial" : "complete";
     const newPayment = new Payment({

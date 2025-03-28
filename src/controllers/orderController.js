@@ -3,6 +3,8 @@ import { createOrder, updateOrder } from "../services/orderService.js";
 
 export const createOrderController = async (req, res) => {
   try {
+    console.log("body=>", req?.body);
+    
     const response = await createOrder(req?.body);
 
     sendResponse(
