@@ -487,3 +487,182 @@ export const getOrderListWithPaginationAndSearch = async (
     };
   }
 };
+
+// export const getOrderBookingComparisonList = async (orderId, bookingId) => {
+//   try {
+//     const order = await Order.findOne({
+//       _id: orderId,
+//     });
+
+//     const booking = await Booking.findOne({
+//       _id: bookingId,
+//     });
+
+//     if (!order) {
+//       return {
+//         success: false,
+//         message: "No orders found",
+//         statusCode: 404,
+//       };
+//     }
+//     if (!booking) {
+//       return {
+//         success: false,
+//         message: "No booking found",
+//         statusCode: 404,
+//       };
+//     }
+
+//     return {
+//       success: true,
+//       message: "Successfully fetched order comparison list",
+//       data: orderComparisonList,
+//       statusCode: 200,
+//     };
+//   } catch (error) {
+//     console.error("Error in getOrderComparisonList => ", error);
+//     return {
+//       success: false,
+//       message: "Internal server error",
+//       statusCode: 500,
+//     };
+//   }
+// };
+
+export const getOrderBookingComparisonList = async (orderId, bookingId) => {
+  try {
+    // 1. Fetch Order and Booking Details
+    const order = await Order.findById(orderId);
+    const booking = await Booking.findById(bookingId);
+
+    if (!order || !booking) {
+      return {
+        success: false,
+        message: "No order or booking found",
+        statusCode: 404,
+      };
+    }
+
+    // 2. Extract Products from Order and Booking (Avoid null product_id)
+    const orderProducts = order.order_items
+      .filter((item) => item.product_id) // Ensure product_id is not null
+      .map((item) => ({
+        product_id: item.product_id.toString(),
+        name: item.name,
+        quantity: item.quantity,
+      }));
+
+    const bookingProducts = booking.booking_items
+      .filter((item) => item.product_id) // Ensure product_id is not null
+      .map((item) => ({
+        product_id: item.product_id.toString(),
+        name: item.name,
+        quantity: item.quantity,
+      }));
+
+    const orderOutsourcedProducts = order.outsourced_items
+      .filter((item) => item.out_product_id)
+      .map((item) => ({
+        product_id: item.out_product_id.toString(),
+        name: item.name,
+        quantity: item.quantity,
+      }));
+
+    const bookingOutsourcedProducts = booking.outsourced_items
+      .filter((item) => item.out_product_id)
+      .map((item) => ({
+        product_id: item.out_product_id.toString(),
+        name: item.name,
+        quantity: item.quantity,
+      }));
+
+    // 3. Determine Products Needed from Order and Inventory
+    const productsToTakeFromOrder = [];
+    const productsToBringFromInventory = [];
+    const outsourcedToTakeFromOrder = [];
+    const outsourcedToBringFromInventory = [];
+
+    for (const bookingProduct of bookingProducts) {
+      const matchingOrderProduct = orderProducts.find(
+        (op) => op.product_id === bookingProduct.product_id
+      );
+
+      if (matchingOrderProduct) {
+        productsToTakeFromOrder.push({
+          product_id: bookingProduct.product_id,
+          name: bookingProduct.name,
+          quantity: bookingProduct.quantity,
+        });
+      } else {
+        productsToBringFromInventory.push({
+          product_id: bookingProduct.product_id,
+          name: bookingProduct.name,
+          quantity: bookingProduct.quantity,
+        });
+      }
+    }
+
+    // Fetch inventory data in parallel
+    const inventoryResults = await Promise.all(
+      productsToBringFromInventory.map((product) =>
+        Inventory.findOne({ product_id: product.product_id }).lean()
+      )
+    );
+
+    productsToBringFromInventory.forEach((product, index) => {
+      product.available_quantity = inventoryResults[index]?.available_quantity || 0;
+    });
+
+    // 4. Handle Outsourced Products
+    for (const bookingOutsourced of bookingOutsourcedProducts) {
+      const matchingOrderOutsourced = orderOutsourcedProducts.find(
+        (op) => op.product_id === bookingOutsourced.product_id
+      );
+
+      if (matchingOrderOutsourced) {
+        outsourcedToTakeFromOrder.push({
+          product_id: bookingOutsourced.product_id,
+          name: bookingOutsourced.name,
+          quantity: bookingOutsourced.quantity,
+        });
+      } else {
+        outsourcedToBringFromInventory.push({
+          product_id: bookingOutsourced.product_id,
+          name: bookingOutsourced.name,
+          quantity: bookingOutsourced.quantity,
+        });
+      }
+    }
+
+    // Fetch inventory data for outsourced products in parallel
+    const outsourcedInventoryResults = await Promise.all(
+      outsourcedToBringFromInventory.map((product) =>
+        Inventory.findOne({ product_id: product.product_id }).lean()
+      )
+    );
+
+    outsourcedToBringFromInventory.forEach((product, index) => {
+      product.available_quantity = outsourcedInventoryResults[index]?.available_quantity || 0;
+    });
+
+    // 5. Return Structured Response
+    return {
+      success: true,
+      message: "Comparison completed",
+      data: {
+        productsToTakeFromOrder,
+        productsToBringFromInventory,
+        outsourcedToTakeFromOrder,
+        outsourcedToBringFromInventory,
+      },
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("Error comparing order and booking:", error);
+    return {
+      success: false,
+      message: error.message || "Internal server error",
+      statusCode: 500,
+    };
+  }
+};

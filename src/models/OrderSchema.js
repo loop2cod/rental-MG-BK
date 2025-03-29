@@ -72,8 +72,8 @@ const OrderSchema = new mongoose.Schema(
     total_quantity: Number,
     status: {
       type: String,
-      enum: ["Pending", "Success", "Returned"],
-      default: "Pending",
+      enum: ["initiated", "inprogress","delivered","inreturn", "Returned"],
+      default: "initiated",
     },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
