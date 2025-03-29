@@ -4,6 +4,8 @@ import {
   getOrderBookingComparisonList,
   getOrderDetails,
   getOrderListWithPaginationAndSearch,
+  handleOrderDispatch,
+  handleOrderReturn,
   updateOrder,
 } from "../services/orderService.js";
 
@@ -73,7 +75,7 @@ export const getOrdersWithPaginationSearchController = async (req, res) => {
       response.data
     );
   } catch (error) {
-    log.error("getOrdersWithPaginationSearchController error => ", error);
+    console.error("getOrdersWithPaginationSearchController error => ", error);
     sendResponse(res, 500, false, "Internal server error");
   }
 };
@@ -84,7 +86,50 @@ export const getOrdersComparisonController = async (req, res) => {
     const response = await getOrderBookingComparisonList(orderId, bookingId);
     sendResponse(res, 200, response.success, response.message, response.data);
   } catch (error) {
-    log.error("getOrdersComparisonController error => ", error);
+    console.error("getOrdersComparisonController error => ", error);
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const handleOrderDispatchController = async (req, res) => {
+  try {
+    const { order_id, dispatch_data } = req.body;
+    const response = await handleOrderDispatch(
+      order_id,
+      dispatch_data,
+      req.user?._id
+    );
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    console.error("handleOrderDispatchController error => ", error);
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const handleOrderReturnController = async (req, res) => {
+  try {
+    const { order_id, return_data } = req.body;
+    const response = await handleOrderReturn(
+      order_id,
+      return_data,
+      req.user?._id
+    );
+
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    console.error("handleOrderReturnController error => ", error);
     sendResponse(res, 500, false, "Internal server error");
   }
 };

@@ -56,7 +56,12 @@ const OrderSchema = new mongoose.Schema(
         quantity: Number,
         dispatch_date: { type: Date, required: true },
         dispatch_time: { type: String, required: true },
-        dispatched_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Who dispatched it
+        dispatched_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        status: {
+          type: String,
+          enum: ["dispatched", "delivered", "inreturn", "returned"],
+          default: "dispatched",
+        }, // Status of dispatch for this item
       },
     ],
     outsourced_dispatch_items: [
@@ -69,12 +74,17 @@ const OrderSchema = new mongoose.Schema(
         dispatch_date: { type: Date, required: true },
         dispatch_time: { type: String, required: true },
         dispatched_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        status: {
+          type: String,
+          enum: ["dispatched", "delivered", "inreturn", "returned"],
+          default: "dispatched",
+        },
       },
     ],
     total_quantity: Number,
     status: {
       type: String,
-      enum: ["initiated", "inprogress","delivered","inreturn", "Returned"],
+      enum: ["initiated", "dispatched", "delivered", "inreturn", "Returned"],
       default: "initiated",
     },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -83,6 +93,5 @@ const OrderSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
 
 export default mongoose.model("Order", OrderSchema);

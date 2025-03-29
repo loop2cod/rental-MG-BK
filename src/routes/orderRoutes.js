@@ -5,6 +5,8 @@ import {
   getOrderDetailsController,
   getOrdersComparisonController,
   getOrdersWithPaginationSearchController,
+  handleOrderDispatchController,
+  handleOrderReturnController,
   updateOrderController,
 } from "../controllers/orderController.js";
 import { validateOrder } from "../validators/orderValidator.js";
@@ -30,4 +32,9 @@ router.get(
   isAuthenticated,
   getOrdersComparisonController
 );
+
+router.post("/order-dispatch", isAuthenticated, handleOrderDispatchController);
+
+router.post("/order-return", isAuthenticated, handleOrderReturnController);
+
 export default router;

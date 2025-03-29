@@ -490,47 +490,6 @@ export const getOrderListWithPaginationAndSearch = async (
   }
 };
 
-// export const getOrderBookingComparisonList = async (orderId, bookingId) => {
-//   try {
-//     const order = await Order.findOne({
-//       _id: orderId,
-//     });
-
-//     const booking = await Booking.findOne({
-//       _id: bookingId,
-//     });
-
-//     if (!order) {
-//       return {
-//         success: false,
-//         message: "No orders found",
-//         statusCode: 404,
-//       };
-//     }
-//     if (!booking) {
-//       return {
-//         success: false,
-//         message: "No booking found",
-//         statusCode: 404,
-//       };
-//     }
-
-//     return {
-//       success: true,
-//       message: "Successfully fetched order comparison list",
-//       data: orderComparisonList,
-//       statusCode: 200,
-//     };
-//   } catch (error) {
-//     console.error("Error in getOrderComparisonList => ", error);
-//     return {
-//       success: false,
-//       message: "Internal server error",
-//       statusCode: 500,
-//     };
-//   }
-// };
-
 export const getOrderBookingComparisonList = async (orderId, bookingId) => {
   try {
     // 1. Fetch Order and Booking Details
@@ -612,7 +571,8 @@ export const getOrderBookingComparisonList = async (orderId, bookingId) => {
     );
 
     productsToBringFromInventory.forEach((product, index) => {
-      product.available_quantity = inventoryResults[index]?.available_quantity || 0;
+      product.available_quantity =
+        inventoryResults[index]?.available_quantity || 0;
     });
 
     // 4. Handle Outsourced Products
@@ -644,7 +604,8 @@ export const getOrderBookingComparisonList = async (orderId, bookingId) => {
     );
 
     outsourcedToBringFromInventory.forEach((product, index) => {
-      product.available_quantity = outsourcedInventoryResults[index]?.available_quantity || 0;
+      product.available_quantity =
+        outsourcedInventoryResults[index]?.available_quantity || 0;
     });
 
     // 5. Return Structured Response
@@ -666,5 +627,277 @@ export const getOrderBookingComparisonList = async (orderId, bookingId) => {
       message: error.message || "Internal server error",
       statusCode: 500,
     };
+  }
+};
+
+export const handleOrderDispatch = async (orderId, dispatchData, userId) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const order = await Order.findById(orderId).session(session);
+
+    if (!order) {
+      return {
+        success: false,
+        message: "No order found",
+        statusCode: 404,
+      };
+    }
+
+    // Validate dispatchData
+    if (!dispatchData || !Array.isArray(dispatchData)) {
+      return {
+        success: false,
+        message: "Invalid dispatch data provided",
+        statusCode: 400,
+      };
+    }
+
+    // Prepare dispatch items and outsourced dispatch items
+    const dispatchItems = [];
+    const outsourcedDispatchItems = [];
+
+    for (const item of dispatchData) {
+      if (
+        (!item.product_id && !item.out_product_id) ||
+        !item.quantity ||
+        !item.dispatch_date ||
+        !item.dispatch_time
+      ) {
+        return {
+          success: false,
+          message:
+            "Invalid dispatch item data: either product_id or out_product_id is required, along with quantity, dispatch_date, and dispatch_time",
+          statusCode: 400,
+        };
+      }
+
+      const dispatchItem = {
+        quantity: item.quantity,
+        dispatch_date: item.dispatch_date,
+        dispatch_time: item.dispatch_time,
+        dispatched_by: userId,
+        status: "dispatched", // Initial status
+      };
+
+      if (item.out_product_id) {
+        dispatchItem.out_product_id = item.out_product_id;
+        outsourcedDispatchItems.push(dispatchItem);
+      } else {
+        dispatchItem.product_id = item.product_id;
+        dispatchItems.push(dispatchItem);
+      }
+    }
+
+    // Update order with dispatch items
+    order.dispatch_items = [...(order.dispatch_items || []), ...dispatchItems];
+    order.outsourced_dispatch_items = [
+      ...(order.outsourced_dispatch_items || []),
+      ...outsourcedDispatchItems,
+    ];
+
+    // Check if all items are dispatched
+    let allItemsDispatched = true;
+    for (const orderItem of order.order_items) {
+      const dispatchedQuantity = order.dispatch_items
+        .filter(
+          (di) =>
+            di.product_id &&
+            orderItem.product_id &&
+            di.product_id.toString() === orderItem.product_id.toString()
+        )
+        .reduce((sum, di) => sum + di.quantity, 0);
+
+      if (dispatchedQuantity < orderItem.quantity) {
+        allItemsDispatched = false;
+        break;
+      }
+    }
+
+    let allOutsourcedItemsDispatched = true;
+    for (const outsourcedItem of order.outsourced_items) {
+      const dispatchedQuantity = order.outsourced_dispatch_items
+        .filter(
+          (di) =>
+            di.out_product_id &&
+            outsourcedItem.out_product_id &&
+            di.out_product_id.toString() ===
+              outsourcedItem.out_product_id.toString()
+        )
+        .reduce((sum, di) => sum + di.quantity, 0);
+
+      if (dispatchedQuantity < outsourcedItem.quantity) {
+        allOutsourcedItemsDispatched = false;
+        break;
+      }
+    }
+
+    // Update order status based on dispatch progress
+    if (allItemsDispatched && allOutsourcedItemsDispatched) {
+      order.status = "delivered";
+    } else {
+      order.status = "initiated"; // Partial dispatch
+    }
+
+    // Save the updated order
+    await order.save({ session });
+    await session.commitTransaction();
+
+    return {
+      success: true,
+      message: "Order dispatch recorded successfully",
+      data: {
+        orderId: order._id,
+        status: order.status,
+      },
+      statusCode: 200,
+    };
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Error handling order dispatch:", error);
+    return {
+      success: false,
+      message: error.message || "Internal server error",
+      statusCode: 500,
+    };
+  } finally {
+    session.endSession();
+  }
+};
+
+export const handleOrderReturn = async (orderId, returnData, userId) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const order = await Order.findById(orderId).session(session);
+
+    if (!order) {
+      return {
+        success: false,
+        message: "No order found",
+        statusCode: 404,
+      };
+    }
+
+    // Validate returnData
+    if (!returnData || !Array.isArray(returnData)) {
+      return {
+        success: false,
+        message: "Invalid return data provided",
+        statusCode: 400,
+      };
+    }
+
+    // Process return items
+    const returnItems = [];
+    const outsourcedReturnItems = [];
+
+    for (const item of returnData) {
+      if (
+        (!item.product_id && !item.out_product_id) ||
+        !item.quantity ||
+        !item.dispatch_date ||
+        !item.dispatch_time
+      ) {
+        return {
+          success: false,
+          message:
+            "Invalid return item data: either product_id or out_product_id is required, along with quantity, dispatch_date, and dispatch_time",
+          statusCode: 400,
+        };
+      }
+
+      const returnItem = {
+        quantity: item.quantity,
+        dispatch_date: item.dispatch_date,
+        dispatch_time: item.dispatch_time,
+        returned_by: userId,
+        status: "inreturn",
+      };
+
+      if (item.out_product_id) {
+        returnItem.out_product_id = item.out_product_id;
+        outsourcedReturnItems.push(returnItem);
+      } else {
+        returnItem.product_id = item.product_id;
+        returnItems.push(returnItem);
+      }
+    }
+
+    // Update order with return items
+    order.return_items = [...(order.return_items || []), ...returnItems];
+    order.outsourced_return_items = [
+      ...(order.outsourced_return_items || []),
+      ...outsourcedReturnItems,
+    ];
+
+    // Check if all items are returned
+    let allItemsReturned = true;
+    for (const orderItem of order.order_items) {
+      const returnedQuantity = order.return_items
+        .filter(
+          (ri) =>
+            ri.product_id &&
+            orderItem.product_id &&
+            ri.product_id.toString() === orderItem.product_id.toString()
+        )
+        .reduce((sum, ri) => sum + ri.quantity, 0);
+
+      if (returnedQuantity < orderItem.quantity) {
+        allItemsReturned = false;
+        break;
+      }
+    }
+
+    let allOutsourcedItemsReturned = true;
+    for (const outsourcedItem of order.outsourced_items) {
+      const returnedQuantity = order.outsourced_return_items
+        .filter(
+          (ri) =>
+            ri.out_product_id &&
+            outsourcedItem.out_product_id &&
+            ri.out_product_id.toString() ===
+              outsourcedItem.out_product_id.toString()
+        )
+        .reduce((sum, ri) => sum + ri.quantity, 0);
+
+      if (returnedQuantity < outsourcedItem.quantity) {
+        allOutsourcedItemsReturned = false;
+        break;
+      }
+    }
+
+    // Update order status based on return progress
+    if (allItemsReturned && allOutsourcedItemsReturned) {
+      order.status = "Returned";
+    } else {
+      order.status = "inreturn";
+    }
+
+    // Save the updated order
+    await order.save({ session });
+    await session.commitTransaction();
+
+    return {
+      success: true,
+      message: "Order return recorded successfully",
+      data: {
+        orderId: order._id,
+        status: order.status,
+      },
+      statusCode: 200,
+    };
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Error handling order return:", error);
+    return {
+      success: false,
+      message: error.message || "Internal server error",
+      statusCode: 500,
+    };
+  } finally {
+    session.endSession();
   }
 };
