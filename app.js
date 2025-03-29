@@ -13,6 +13,7 @@ import orderRoutes from "./src/routes/orderRoutes.js";
 import paymentRoutes from "./src/routes/paymentRoutes.js";
 import cookieParser from "cookie-parser";
 import formidable from "express-formidable";
+import dashboardRoutes from "./src/routes/dashboardRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -42,6 +43,7 @@ app.use("/api/v1/supplier", supplierRoutes);
 app.use("/api/v1/booking", bookingRoutes);
 app.use("/api/v1/order", orderRoutes);
 app.use("/api/v1/payment", paymentRoutes);
+app.use("/api/v1/dashboard", dashboardRoutes);
 
 
 const PORT = process.env.PORT || 5000;

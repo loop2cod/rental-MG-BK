@@ -25,6 +25,8 @@ const OrderSchema = new mongoose.Schema(
       required: [true, "no_of_days is required"],
     },
     order_date: { type: Date, default: Date.now },
+    discount: { type: Number, default: 0 },
+    sub_total: { type: Number },
     total_amount: { type: Number, required: true },
     amount_paid: { type: Number },
     order_items: [

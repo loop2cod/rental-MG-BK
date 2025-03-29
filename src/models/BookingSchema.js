@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 
 const BookingSchema = new mongoose.Schema(
@@ -53,7 +52,8 @@ const BookingSchema = new mongoose.Schema(
     },
     total_quantity: Number,
     amount_paid: Number,
-    discount: Number,
+    discount: { type: Number, default: 0 },
+    sub_total: Number,
     total_amount: Number,
     remarks: String,
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

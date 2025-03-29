@@ -7,7 +7,6 @@ export const createOrder = async (orderData) => {
   // Destructure all values from order
   let {
     booking_id,
-    order_id,
     user_id,
     order_date,
     order_items,
@@ -21,6 +20,8 @@ export const createOrder = async (orderData) => {
     from_time,
     to_time,
     amount_paid,
+    discount,
+    sub_total,
   } = orderData;
 
   // Start a session
@@ -154,7 +155,8 @@ export const createOrder = async (orderData) => {
       to_date,
       from_time,
       to_time,
-      // amount_paid,
+      discount,
+      sub_total,
       created_by,
       updated_by,
     });

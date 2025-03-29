@@ -96,6 +96,8 @@ export const addBooking = async (fields, userId) => {
       outsourced_items: fields.outsourced_items,
       total_quantity: fields.total_quantity,
       amount_paid: fields.amount_paid,
+      sub_total: fields.sub_total,
+      discount: fields.discount,
       total_amount: fields.total_amount,
       created_by: userId,
       updated_by: userId,
