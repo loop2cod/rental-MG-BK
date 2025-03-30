@@ -3,11 +3,6 @@ import { body, validationResult, param } from "express-validator";
 export const validateUpdateBooking = [
   
 
-  body("user_id")
-    .notEmpty()
-    .withMessage("user_id is required")
-    .isMongoId()
-    .withMessage("Valid user ID is required"),
 
   // Validate from_date
   body("from_date")
