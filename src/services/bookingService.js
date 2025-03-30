@@ -124,27 +124,30 @@ export const addBooking = async (fields, userId) => {
   }
 };
 
-export const updateBooking = async (id, data) => {
+export const updateBooking = async (id, data, fields, userId) => {
   const session = await mongoose.startSession();
 
   try {
     session.startTransaction();
 
-    // Retrieve the current booking
-    const currentBooking = await Booking.findById(id);
-    if (!currentBooking) {
+    // Retrieve the current booking within the transaction
+    const currentBooking = await Booking.findById(id).session(session);
+    if (!currentBooking || currentBooking.isDeleted) {
+      await session.abortTransaction();
       return {
         success: false,
-        message: "Booking not found",
+        message: "Booking not found or has been deleted",
         statusCode: 404,
       };
     }
 
     // Calculate the new potential amount paid
-    const newAmountPaid = currentBooking?.amount_paid + data?.amount_paid;
+    const newAmountPaid =
+      (currentBooking.amount_paid || 0) + (data.amount_paid || 0);
 
     // Check if the new amount paid exceeds the total amount
-    if (newAmountPaid > currentBooking?.total_amount) {
+    if (newAmountPaid > currentBooking.total_amount) {
+      await session.abortTransaction();
       return {
         success: false,
         message: "Amount exceeds the total amount payable",
@@ -154,7 +157,7 @@ export const updateBooking = async (id, data) => {
 
     // Merge booking items
     const mergedBookingItems = {};
-    data.booking_items.forEach((item) => {
+    data.booking_items?.forEach((item) => {
       if (mergedBookingItems[item.product_id]) {
         mergedBookingItems[item.product_id].quantity += item.quantity;
         mergedBookingItems[item.product_id].total_price += item.total_price;
@@ -177,25 +180,36 @@ export const updateBooking = async (id, data) => {
     });
     data.outsourced_items = Object.values(mergedOutsourcedItems);
 
-    // Find booking within transaction
-    const booking = await Booking.findOne(
-      {
-        _id: id,
-        isDeleted: false,
-        booking_date: data?.booking_date || { $exists: true },
-      },
+    const isUserExists = await User.findOne(
+      { _id: currentBooking?.user_id },
       null,
       { session }
     );
-
-    if (!booking) {
+    if (!isUserExists) {
       await session.abortTransaction();
       return {
         success: false,
-        message:
-          "Booking not found, has been deleted, or booking date should be the same",
+        message: "User not found",
         statusCode: 404,
       };
+    }
+
+    if (
+      isUserExists?.name !== data.user_name ||
+      isUserExists?.proof_type !== data.user_proof_type ||
+      isUserExists?.proof_id !== data.user_proof_id
+    ) {
+      // Update the user name
+      await User.findByIdAndUpdate(
+        {_id:isUserExists._id},
+        {
+          name: data.user_name,
+          proof_type: data.user_proof_type,
+          proof_id: data.user_proof_id,
+          updated_by: userId,
+        },
+        { session }
+      );
     }
 
     data.amount_paid = currentBooking?.amount_paid;
@@ -351,7 +365,7 @@ export const bookingView = async (id) => {
 
 export const bookingDetailsById = async (id) => {
   try {
-    const booking = await Booking.findById(id);
+    const booking = await Booking.findById(id).populate("user_id");
     if (!booking) {
       return {
         success: false,
