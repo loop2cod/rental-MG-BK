@@ -62,9 +62,7 @@ export const validateUpdateBooking = [
   // Validate amount_paid
   body("amount_paid")
     .notEmpty()
-    .withMessage("amount_paid is required")
-    .isFloat({ gt: 0 })
-    .withMessage("amount_paid must be a positive number"),
+    .withMessage("amount_paid is required"),
 
   // Validate payment_method
   body("payment_method")
