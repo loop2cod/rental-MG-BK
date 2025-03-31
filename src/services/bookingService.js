@@ -201,7 +201,7 @@ export const updateBooking = async (id, data, fields, userId) => {
     ) {
       // Update the user name
       await User.findByIdAndUpdate(
-        {_id:isUserExists._id},
+        { _id: isUserExists._id },
         {
           name: data.user_name,
           proof_type: data.user_proof_type,
@@ -383,11 +383,11 @@ export const bookingDetailsById = async (id) => {
           },
           { quantity: 1, reserved_quantity: 1, available_quantity: 1, _id: 0 }
         );
-
         // Return the booking item with its inventory details
         return {
           ...item.toObject(),
-          ...inventory.toObject(),
+          reserved_quantity: inventory.reserved_quantity,
+          available_quantity: inventory.available_quantity,
         };
       })
     );
