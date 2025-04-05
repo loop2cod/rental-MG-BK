@@ -3,6 +3,7 @@ import {
   createSupplier,
   getAllSuppliersWithoutPagination,
   getAllSuppliersWithPagination,
+  getSupplierOverview,
   updateSupplier,
 } from "../services/supplierService.js";
 
@@ -80,6 +81,23 @@ export const listSuppliersController = async (req, res) => {
   } catch (error) {
     console.log("listSuppliersController error => ", error);
 
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const getSupplierOverviewController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const response = await getSupplierOverview(id);
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    console.log("getSupplierOverviewController error => ", error);
     sendResponse(res, 500, false, "Internal server error");
   }
 };

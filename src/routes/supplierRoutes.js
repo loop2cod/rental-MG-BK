@@ -2,6 +2,7 @@ import express from "express";
 import {
   addSupplier,
   getAllSuppliersWithoutPaginationController,
+  getSupplierOverviewController,
   listSuppliersController,
   updateSupplierController,
 } from "../controllers/supplierController.js";
@@ -24,5 +25,6 @@ router.get(
   getAllSuppliersWithoutPaginationController
 );
 router.get("/list", isAuthenticated, listSuppliersController);
+router.get("/overview/:id", isAuthenticated, getSupplierOverviewController);
 
 export default router;

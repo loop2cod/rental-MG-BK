@@ -3,6 +3,7 @@ import Inventory from "../models/InventorySchema.js";
 import User from "../models/UserSchema.js";
 import mongoose from "mongoose";
 import Payment from "../models/PaymentSchema.js";
+import sendEmail from "../utils/sendMail.js";
 
 export const addBooking = async (fields, userId) => {
   const session = await mongoose.startSession();
@@ -11,7 +12,6 @@ export const addBooking = async (fields, userId) => {
     session.startTransaction();
 
     let user_id;
-    // Generate a default password using the current date and time
     const currentDate = new Date();
     const defaultPassword = `user${currentDate.getFullYear()}${String(
       currentDate.getMonth() + 1
@@ -32,18 +32,13 @@ export const addBooking = async (fields, userId) => {
     if (isUserExists) {
       user_id = isUserExists._id;
       if (isUserExists?.name !== fields.user_name) {
-        // Update the user name
         await User.findByIdAndUpdate(
           user_id,
-          {
-            name: fields.user_name,
-            updated_by: userId,
-          },
+          { name: fields.user_name, updated_by: userId },
           { session }
         );
       }
     } else {
-      // Create the user first
       const newUser = new User({
         name: fields.user_name,
         mobile: fields.user_phone,
@@ -56,9 +51,9 @@ export const addBooking = async (fields, userId) => {
       });
 
       await newUser.save({ session });
-
       user_id = newUser._id;
     }
+
     const mergedItems = {};
     fields.booking_items.forEach((item) => {
       if (mergedItems[item.product_id]) {
@@ -70,7 +65,6 @@ export const addBooking = async (fields, userId) => {
     });
     fields.booking_items = Object.values(mergedItems);
 
-    // Preprocess outsourced_items to merge duplicates
     const mergedOutsourcedItems = {};
     fields.outsourced_items?.forEach((item) => {
       if (mergedOutsourcedItems[item.out_product_id]) {
@@ -83,7 +77,6 @@ export const addBooking = async (fields, userId) => {
     });
     fields.outsourced_items = Object.values(mergedOutsourcedItems);
 
-    // Create the booking with the new user's ID
     const newBooking = new Booking({
       user_id: user_id,
       from_date: fields.from_date,
@@ -105,9 +98,27 @@ export const addBooking = async (fields, userId) => {
 
     await newBooking.save({ session });
     await session.commitTransaction();
+
+    // **SEND CONFIRMATION EMAIL**
+    const emailSubject = "Booking Confirmation";
+    const emailBody = `
+      <h2>Booking Confirmation</h2>
+      <p>Dear ${fields.user_name},</p>
+      <p>Thank you for your booking. Your booking details are as follows:</p>
+      <ul>
+        <li><strong>Booking ID:</strong> ${newBooking._id}</li>
+        <li><strong>From Date:</strong> ${fields.from_date}</li>
+        <li><strong>To Date:</strong> ${fields.to_date}</li>
+        <li><strong>Total Amount:</strong> ${fields.total_amount}</li>
+      </ul>
+      <p>We look forward to serving you!</p>
+    `;
+
+    await sendEmail(fields.user_email, emailSubject, emailBody);
+
     return {
       success: true,
-      message: "Booking  created successfully",
+      message: "Booking created successfully",
       data: { booking: newBooking },
       statusCode: 201,
     };
@@ -123,6 +134,7 @@ export const addBooking = async (fields, userId) => {
     session.endSession();
   }
 };
+
 
 export const updateBooking = async (id, data, fields, userId) => {
   const session = await mongoose.startSession();
