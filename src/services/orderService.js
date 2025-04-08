@@ -19,6 +19,7 @@ export const createOrder = async (orderData) => {
     to_date,
     from_time,
     to_time,
+    address,
     amount_paid,
     discount,
     sub_total,
@@ -146,6 +147,7 @@ export const createOrder = async (orderData) => {
     const newOrder = new Order({
       booking_id,
       user_id,
+      address,
       order_date,
       order_items,
       outsourced_items,
@@ -400,6 +402,7 @@ export const getOrderListWithPaginationAndSearch = async (
             $elemMatch: { name: { $regex: search, $options: "i" } },
           },
         },
+        { address: { $regex: search, $options: "i" } },
         { status: { $regex: search, $options: "i" } },
         { from_time: { $regex: search, $options: "i" } },
         { to_time: { $regex: search, $options: "i" } },
@@ -814,7 +817,7 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
         dispatch_date: item.dispatch_date,
         dispatch_time: item.dispatch_time,
         returned_by: userId,
-        status: "inreturn",
+        status: "in-return",
       };
 
       if (item.out_product_id) {
@@ -828,8 +831,8 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
 
     // Update order with return items
     order.return_items = [...(order.return_items || []), ...returnItems];
-    order.outsourced_return_items = [
-      ...(order.outsourced_return_items || []),
+    order.outsourced_items = [
+      ...(order.outsourced_items || []),
       ...outsourcedReturnItems,
     ];
 
@@ -853,7 +856,7 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
 
     let allOutsourcedItemsReturned = true;
     for (const outsourcedItem of order.outsourced_items) {
-      const returnedQuantity = order.outsourced_return_items
+      const returnedQuantity = order.outsourced_items
         .filter(
           (ri) =>
             ri.out_product_id &&
@@ -873,7 +876,7 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
     if (allItemsReturned && allOutsourcedItemsReturned) {
       order.status = "Returned";
     } else {
-      order.status = "inreturn";
+      order.status = "in-return";
     }
 
     // Save the updated order

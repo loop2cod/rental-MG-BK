@@ -1,9 +1,6 @@
 import { body, validationResult, param } from "express-validator";
 
 export const validateUpdateBooking = [
-  
-
-
   // Validate from_date
   body("from_date")
     .notEmpty()
@@ -52,6 +49,12 @@ export const validateUpdateBooking = [
     .isArray()
     .withMessage("outsourced_items must be an array"),
 
+  body("address")
+    .notEmpty()
+    .withMessage("address is required")
+    .isString()
+    .withMessage("address must be a string"),
+
   // Validate total_quantity
   body("total_quantity")
     .notEmpty()
@@ -60,9 +63,7 @@ export const validateUpdateBooking = [
     .withMessage("total_quantity must be a positive integer"),
 
   // Validate amount_paid
-  body("amount_paid")
-    .notEmpty()
-    .withMessage("amount_paid is required"),
+  body("amount_paid").notEmpty().withMessage("amount_paid is required"),
 
   // Validate payment_method
   body("payment_method")

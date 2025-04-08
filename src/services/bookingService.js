@@ -80,6 +80,7 @@ export const addBooking = async (fields, userId) => {
     const newBooking = new Booking({
       user_id: user_id,
       from_date: fields.from_date,
+      address: fields.address,
       to_date: fields.to_date,
       from_time: fields.from_time,
       to_time: fields.to_time,
@@ -134,7 +135,6 @@ export const addBooking = async (fields, userId) => {
     session.endSession();
   }
 };
-
 
 export const updateBooking = async (id, data, fields, userId) => {
   const session = await mongoose.startSession();
@@ -274,7 +274,8 @@ export const listBookings = async (
       // Search in string fields
       searchQuery.$or.push(
         { "booking_items.name": { $regex: search, $options: "i" } },
-        { "outsourced_items.name": { $regex: search, $options: "i" } }
+        { "outsourced_items.name": { $regex: search, $options: "i" } },
+        { address: { $regex: search, $options: "i" } }
       );
 
       // Search in numeric fields if search is a number

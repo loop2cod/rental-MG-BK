@@ -37,6 +37,12 @@ export const validateBooking = [
     .isDate({ format: "YYYY-MM-DD" })
     .withMessage("from_date must be in YYYY-MM-DD format"),
 
+  body("address")
+    .notEmpty()
+    .withMessage("address is required")
+    .isString()
+    .withMessage("address must be a string"),
+
   // Validate to_date
   body("to_date")
     .notEmpty()

@@ -42,6 +42,12 @@ export const validateOrder = [
     .withMessage("user_id is required")
     .isString()
     .withMessage("user_id must be a string"),
+    
+  body("address")
+    .notEmpty()
+    .withMessage("address is required")
+    .isString()
+    .withMessage("address must be a string"),
 
   body("order_date")
     .notEmpty()

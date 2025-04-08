@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const BookingSchema = new mongoose.Schema(
   {
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    address: { type: String, required: true },
     from_date: {
       type: Date,
       required: [true, "from_date is required"],

@@ -141,7 +141,6 @@ export const getAllSuppliersWithPagination = async (
   }
 };
 
-
 export const getSupplierOverview = async (supplierId) => {
   try {
     // Validate supplier existence
@@ -154,7 +153,8 @@ export const getSupplierOverview = async (supplierId) => {
       };
     }
 
-    const objectSupplierId = mongoose.Types.ObjectId.createFromHexString(supplierId);
+    const objectSupplierId =
+      mongoose.Types.ObjectId.createFromHexString(supplierId);
 
     // 1. Aggregate outsourced products with their related orders
     const results = await OutsourcedProduct.aggregate([
@@ -239,6 +239,7 @@ export const getSupplierOverview = async (supplierId) => {
     return {
       success: true,
       data: {
+        supplier,
         products: results,
         total_purchase_amount: totalAmount,
         total_purchase_quantity: totalQuantity,
