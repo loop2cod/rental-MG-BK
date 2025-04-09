@@ -37,12 +37,42 @@ export const validateOrder = [
     .matches(/^\d{2}:\d{2}$/)
     .withMessage("to_time must be in HH:MM format"),
 
-  body("user_id")
+  body("user_name")
     .notEmpty()
-    .withMessage("user_id is required")
+    .withMessage("user_name is required")
     .isString()
-    .withMessage("user_id must be a string"),
-    
+    .withMessage("user_name must be a string"),
+
+  body("user_phone")
+    .notEmpty()
+    .withMessage("user_phone is required")
+    .isString()
+    .withMessage("user_phone must be a string")
+    .isLength({ min: 10, max: 10 })
+    .withMessage("user_phone must be exactly 10 digits")
+    .isNumeric()
+    .withMessage("user_phone must contain only numbers"),
+
+  body("user_proof_type")
+    .optional()
+    .isString()
+    .withMessage("user_proof_type must be a string")
+    .isIn(["votersId", "aadhar", "drivingLicense", "pancard"])
+    .withMessage(
+      "user_proof_type must be one of: votersId, aadhar, drivingLicense, pancard"
+    ),
+
+  body("user_proof_id")
+    .optional()
+    .isString()
+    .withMessage("user_proof_id must be a string"),
+
+  // body("user_id")
+  //   .notEmpty()
+  //   .withMessage("user_id is required")
+  //   .isString()
+  //   .withMessage("user_id must be a string"),
+
   body("address")
     .notEmpty()
     .withMessage("address is required")

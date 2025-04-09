@@ -1,13 +1,16 @@
 import Order from "../models/OrderSchema.js";
 import Inventory from "../models/InventorySchema.js";
 import Booking from "../models/BookingSchema.js";
+import User from "../models/UserSchema.js";
 import mongoose from "mongoose";
 
-export const createOrder = async (orderData) => {
-  // Destructure all values from order
+export const createOrder = async (orderData, userId) => {
   let {
     booking_id,
-    user_id,
+    user_phone,
+    user_name,
+    user_proof_type,
+    user_proof_id,
     order_date,
     order_items,
     no_of_days,
@@ -49,6 +52,56 @@ export const createOrder = async (orderData) => {
         message: "Booking is not available",
         statusCode: 400,
       };
+    }
+
+    let user_id = isBookingAvailable?.user_id;
+    const currentDate = new Date();
+    const defaultPassword = `user${currentDate.getFullYear()}${String(
+      currentDate.getMonth() + 1
+    ).padStart(2, "0")}${String(currentDate.getDate()).padStart(
+      2,
+      "0"
+    )}${String(currentDate.getHours()).padStart(2, "0")}${String(
+      currentDate.getMinutes()
+    ).padStart(2, "0")}`;
+
+    // Find or Create User within transaction
+    const isUserExists = await User.findById(user_id, null, {
+      session,
+    });
+
+    if (isUserExists) {
+      user_id = isUserExists._id;
+      if (
+        isUserExists?.name !== user_name ||
+        isUserExists?.proof_type !== user_proof_type ||
+        isUserExists?.proof_id !== user_proof_id
+      ) {
+        await User.findByIdAndUpdate(
+          user_id,
+          {
+            name: user_name,
+            proof_type: user_proof_type,
+            proof_id: user_proof_id,
+            updated_by: userId,
+          },
+          { session }
+        );
+      }
+    } else {
+      const newUser = new User({
+        name: user_name,
+        mobile: user_phone,
+        user_role: "customer",
+        proof_type: user_proof_type,
+        proof_id: user_proof_id,
+        password: defaultPassword,
+        created_by: userId,
+        updated_by: userId,
+      });
+
+      await newUser.save({ session });
+      user_id = newUser._id;
     }
 
     // Check stock availability
@@ -189,7 +242,7 @@ export const createOrder = async (orderData) => {
   }
 };
 
-export const updateOrder = async (orderId, orderUpdates) => {
+export const updateOrder = async (orderId, orderUpdates, userId) => {
   const session = await mongoose.startSession();
 
   try {
@@ -210,6 +263,56 @@ export const updateOrder = async (orderId, orderUpdates) => {
       };
     }
 
+    
+    let user_id = existingOrder?.user_id;
+    const currentDate = new Date();
+    const defaultPassword = `user${currentDate.getFullYear()}${String(
+      currentDate.getMonth() + 1
+    ).padStart(2, "0")}${String(currentDate.getDate()).padStart(
+      2,
+      "0"
+    )}${String(currentDate.getHours()).padStart(2, "0")}${String(
+      currentDate.getMinutes()
+    ).padStart(2, "0")}`;
+
+    // Find or Create User within transaction
+    const isUserExists = await User.findById(user_id, null, {
+      session,
+    });
+
+    if (isUserExists) {
+      user_id = isUserExists._id;
+      if (
+        isUserExists?.name !== orderUpdates?.user_name ||
+        isUserExists?.proof_type !== orderUpdates?.user_proof_type ||
+        isUserExists?.proof_id !== orderUpdates?.user_proof_id
+      ) {
+        await User.findByIdAndUpdate(
+          user_id,
+          {
+            name: orderUpdates?.user_name,
+            proof_type: orderUpdates?.user_proof_type,
+            proof_id: orderUpdates?.user_proof_id,
+            updated_by: userId,
+          },
+          { session }
+        );
+      }
+    } else {
+      const newUser = new User({
+        name: orderUpdates?.user_name,
+        mobile: orderUpdates?.user_phone,
+        user_role: "customer",
+        proof_type: orderUpdates?.user_proof_type,
+        proof_id: orderUpdates?.user_proof_id,
+        password: defaultPassword,
+        created_by: userId,
+        updated_by: userId,
+      });
+
+      await newUser.save({ session });
+      user_id = newUser._id;
+    }
     // Check stock availability for updated items if necessary
     const checkStockAvailability = await Promise.all(
       orderUpdates.order_items.map(async (item) => {
@@ -793,9 +896,7 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
       };
     }
 
-    // Process return items
-    const returnItems = [];
-    const outsourcedReturnItems = [];
+    const inventoryUpdates = [];
 
     for (const item of returnData) {
       if (
@@ -812,80 +913,79 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
         };
       }
 
-      const returnItem = {
-        quantity: item.quantity,
-        dispatch_date: item.dispatch_date,
-        dispatch_time: item.dispatch_time,
-        returned_by: userId,
-        status: "in-return",
-      };
+      if (item.product_id) {
+        // Handle regular products
+        const dispatchItem = order.dispatch_items.find(
+          (di) =>
+            di.product_id.toString() === item.product_id.toString() &&
+            di.dispatch_date.toISOString().split("T")[0] ===
+              new Date(item.dispatch_date).toISOString().split("T")[0] &&
+            di.dispatch_time === item.dispatch_time
+        );
 
-      if (item.out_product_id) {
-        returnItem.out_product_id = item.out_product_id;
-        outsourcedReturnItems.push(returnItem);
-      } else {
-        returnItem.product_id = item.product_id;
-        returnItems.push(returnItem);
+        if (dispatchItem) {
+          dispatchItem.status = "in-return";
+
+          inventoryUpdates.push({
+            product_id: item.product_id,
+            quantity: item.quantity,
+          });
+        }
+      } else if (item.out_product_id) {
+        // Handle outsourced products
+        const dispatchItem = order.outsourced_dispatch_items.find(
+          (di) =>
+            di.out_product_id.toString() === item.out_product_id.toString() &&
+            di.dispatch_date.toISOString().split("T")[0] ===
+              new Date(item.dispatch_date).toISOString().split("T")[0] &&
+            di.dispatch_time === item.dispatch_time
+        );
+
+        if (dispatchItem) {
+          dispatchItem.status = "in-return";
+        }
       }
     }
 
-    // Update order with return items
-    order.return_items = [...(order.return_items || []), ...returnItems];
-    order.outsourced_items = [
-      ...(order.outsourced_items || []),
-      ...outsourcedReturnItems,
-    ];
+    // Update inventory for returned products
+    for (const update of inventoryUpdates) {
+      const inventory = await Inventory.findOne({
+        product_id: update.product_id,
+      }).session(session);
 
-    // Check if all items are returned
-    let allItemsReturned = true;
-    for (const orderItem of order.order_items) {
-      const returnedQuantity = order.return_items
-        .filter(
-          (ri) =>
-            ri.product_id &&
-            orderItem.product_id &&
-            ri.product_id.toString() === orderItem.product_id.toString()
-        )
-        .reduce((sum, ri) => sum + ri.quantity, 0);
+      if (inventory) {
+        inventory.available_quantity += update.quantity;
+        inventory.reserved_quantity -= update.quantity;
+        inventory.reserved_quantity = Math.max(0, inventory.reserved_quantity);
+        inventory.quantity =
+          inventory.available_quantity + inventory.reserved_quantity;
 
-      if (returnedQuantity < orderItem.quantity) {
-        allItemsReturned = false;
-        break;
+        await inventory.save({ session });
       }
     }
 
-    let allOutsourcedItemsReturned = true;
-    for (const outsourcedItem of order.outsourced_items) {
-      const returnedQuantity = order.outsourced_items
-        .filter(
-          (ri) =>
-            ri.out_product_id &&
-            outsourcedItem.out_product_id &&
-            ri.out_product_id.toString() ===
-              outsourcedItem.out_product_id.toString()
-        )
-        .reduce((sum, ri) => sum + ri.quantity, 0);
+    // Check if all dispatch items and outsourced dispatch items are returned
+    const allItemsReturned = order.dispatch_items.every(
+      (item) => item.status === "returned" || item.status === "in-return"
+    );
 
-      if (returnedQuantity < outsourcedItem.quantity) {
-        allOutsourcedItemsReturned = false;
-        break;
-      }
-    }
+    const allOutsourcedItemsReturned = order.outsourced_dispatch_items.every(
+      (item) => item.status === "returned" || item.status === "in-return"
+    );
 
-    // Update order status based on return progress
     if (allItemsReturned && allOutsourcedItemsReturned) {
       order.status = "Returned";
     } else {
       order.status = "in-return";
     }
 
-    // Save the updated order
+    // Save and commit
     await order.save({ session });
     await session.commitTransaction();
 
     return {
       success: true,
-      message: "Order return recorded successfully",
+      message: "Order return recorded and inventory updated successfully",
       data: {
         orderId: order._id,
         status: order.status,

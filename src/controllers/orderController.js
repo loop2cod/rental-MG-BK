@@ -11,7 +11,7 @@ import {
 
 export const createOrderController = async (req, res) => {
   try {
-    const response = await createOrder(req?.body);
+    const response = await createOrder(req?.body, req.user?._id);
 
     sendResponse(
       res,
@@ -26,8 +26,9 @@ export const createOrderController = async (req, res) => {
 };
 
 export const updateOrderController = async (req, res) => {
+  const { id } = req.params;
   try {
-    const response = await updateOrder(req?.body, req.user?._id);
+    const response = await updateOrder(id, req?.body, req.user?._id);
 
     sendResponse(
       res,
