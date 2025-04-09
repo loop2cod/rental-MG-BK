@@ -263,7 +263,6 @@ export const updateOrder = async (orderId, orderUpdates, userId) => {
       };
     }
 
-    
     let user_id = existingOrder?.user_id;
     const currentDate = new Date();
     const defaultPassword = `user${currentDate.getFullYear()}${String(
@@ -444,7 +443,7 @@ export const getOrderDetails = async (id) => {
       order.order_items.map(async (item) => {
         const inventory = await Inventory.findOne(
           { product_id: item.product_id },
-          {  reserved_quantity: 1, available_quantity: 1, _id: 0 }
+          { reserved_quantity: 1, available_quantity: 1, _id: 0 }
         );
 
         // Return the order item with its inventory details
@@ -913,37 +912,30 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
         };
       }
 
+      const returnEntry = {
+        quantity: item.quantity,
+        dispatch_date: new Date(item.dispatch_date),
+        dispatch_time: item.dispatch_time,
+        dispatched_by: userId,
+        status: "returned",
+      };
+
       if (item.product_id) {
-        // Handle regular products
-        const dispatchItem = order.dispatch_items.find(
-          (di) =>
-            di.product_id.toString() === item.product_id.toString() &&
-            di.dispatch_date.toISOString().split("T")[0] ===
-              new Date(item.dispatch_date).toISOString().split("T")[0] &&
-            di.dispatch_time === item.dispatch_time
-        );
+        // Add new return entry for regular product
+        returnEntry.product_id = item.product_id;
 
-        if (dispatchItem) {
-          dispatchItem.status = "in-return";
+        order.dispatch_items.push(returnEntry);
 
-          inventoryUpdates.push({
-            product_id: item.product_id,
-            quantity: item.quantity,
-          });
-        }
+        // Inventory will be updated
+        inventoryUpdates.push({
+          product_id: item.product_id,
+          quantity: item.quantity,
+        });
       } else if (item.out_product_id) {
-        // Handle outsourced products
-        const dispatchItem = order.outsourced_dispatch_items.find(
-          (di) =>
-            di.out_product_id.toString() === item.out_product_id.toString() &&
-            di.dispatch_date.toISOString().split("T")[0] ===
-              new Date(item.dispatch_date).toISOString().split("T")[0] &&
-            di.dispatch_time === item.dispatch_time
-        );
+        // Add new return entry for outsourced product
+        returnEntry.out_product_id = item.out_product_id;
 
-        if (dispatchItem) {
-          dispatchItem.status = "in-return";
-        }
+        order.outsourced_dispatch_items.push(returnEntry);
       }
     }
 
@@ -964,28 +956,38 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
       }
     }
 
-    // Check if all dispatch items and outsourced dispatch items are returned
-    const allItemsReturned = order.dispatch_items.every(
+    // Check if all original dispatch items are returned
+    const allDispatched = order.dispatch_items.filter(
+      (item) => item.status === "dispatched"
+    );
+    const allOutDispatched = order.outsourced_dispatch_items.filter(
+      (item) => item.status === "dispatched"
+    );
+
+    const allReturns = order.dispatch_items.filter(
+      (item) => item.status === "returned" || item.status === "in-return"
+    );
+    const allOutReturns = order.outsourced_dispatch_items.filter(
       (item) => item.status === "returned" || item.status === "in-return"
     );
 
-    const allOutsourcedItemsReturned = order.outsourced_dispatch_items.every(
-      (item) => item.status === "returned" || item.status === "in-return"
-    );
-
-    if (allItemsReturned && allOutsourcedItemsReturned) {
+    if (
+      allDispatched.length > 0 &&
+      allDispatched.length === allReturns.length &&
+      allOutDispatched.length > 0 &&
+      allOutDispatched.length === allOutReturns.length
+    ) {
       order.status = "Returned";
     } else {
       order.status = "in-return";
     }
 
-    // Save and commit
     await order.save({ session });
     await session.commitTransaction();
 
     return {
       success: true,
-      message: "Order return recorded and inventory updated successfully",
+      message: "Order return recorded successfully as new dispatch entries",
       data: {
         orderId: order._id,
         status: order.status,
