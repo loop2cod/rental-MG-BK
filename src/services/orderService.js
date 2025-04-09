@@ -444,7 +444,7 @@ export const getOrderDetails = async (id) => {
       order.order_items.map(async (item) => {
         const inventory = await Inventory.findOne(
           { product_id: item.product_id },
-          { quantity: 1, reserved_quantity: 1, available_quantity: 1, _id: 0 }
+          {  reserved_quantity: 1, available_quantity: 1, _id: 0 }
         );
 
         // Return the order item with its inventory details
