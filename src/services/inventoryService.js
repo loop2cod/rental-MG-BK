@@ -43,6 +43,8 @@ export const addProductToInventory = async (fields, files, userId) => {
     const newInventoryItem = new Inventory({
       product_id: newProduct._id,
       quantity: fields.quantity || 0,
+      available_quantity: fields.quantity || 0,
+      reserved_quantity: 0,
       created_by: userId,
       updated_by: userId,
     });
