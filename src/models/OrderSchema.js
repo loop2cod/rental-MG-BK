@@ -4,6 +4,7 @@ const OrderSchema = new mongoose.Schema(
   {
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     booking_id: { type: mongoose.Schema.Types.ObjectId, ref: "Booking" },
+    address: { type: String, required: true },
     from_date: {
       type: Date,
       required: [true, "from_date is required"],

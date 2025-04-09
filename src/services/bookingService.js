@@ -307,6 +307,7 @@ export const listBookings = async (
     if (searchQuery.$or.length === 0) {
       delete searchQuery.$or;
     }
+    
 
     // Fetch bookings with pagination
     const bookings = await Booking.find(searchQuery)

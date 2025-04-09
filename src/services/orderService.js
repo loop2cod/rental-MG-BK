@@ -426,10 +426,7 @@ export const updateOrder = async (orderId, orderUpdates, userId) => {
 
 export const getOrderDetails = async (id) => {
   try {
-    const order = await Order.findById(id).populate({
-      path: "user_id",
-      select: "name mobile",
-    });
+    const order = await Order.findById(id).populate("user_id");
     if (!order) {
       return {
         success: false,
@@ -904,10 +901,11 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
         !item.dispatch_date ||
         !item.dispatch_time
       ) {
+        await session.abortTransaction();
         return {
           success: false,
           message:
-            "Invalid return item data: either product_id or out_product_id is required, along with quantity, dispatch_date, and dispatch_time",
+            "Each return item must include product_id or out_product_id, quantity, dispatch_date, and dispatch_time",
           statusCode: 400,
         };
       }
@@ -921,20 +919,45 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
       };
 
       if (item.product_id) {
-        // Add new return entry for regular product
-        returnEntry.product_id = item.product_id;
+        const matchingDispatch = order.dispatch_items.find(
+          (di) =>
+            di.product_id?.toString() === item.product_id.toString() &&
+            di.status === "dispatched"
+        );
 
+        if (!matchingDispatch) {
+          await session.abortTransaction();
+          return {
+            success: false,
+            message: `No dispatched record found for product ${item.product_id} on ${item.dispatch_date} at ${item.dispatch_time}`,
+            statusCode: 400,
+          };
+        }
+
+        returnEntry.product_id = item.product_id;
         order.dispatch_items.push(returnEntry);
 
-        // Inventory will be updated
         inventoryUpdates.push({
           product_id: item.product_id,
           quantity: item.quantity,
         });
       } else if (item.out_product_id) {
-        // Add new return entry for outsourced product
-        returnEntry.out_product_id = item.out_product_id;
+        const matchingOutDispatch = order.outsourced_dispatch_items.find(
+          (di) =>
+            di.out_product_id?.toString() === item.out_product_id.toString() &&
+            di.status === "dispatched"
+        );
 
+        if (!matchingOutDispatch) {
+          await session.abortTransaction();
+          return {
+            success: false,
+            message: `No dispatched record found for outsourced product ${item.out_product_id} on ${item.dispatch_date} at ${item.dispatch_time}`,
+            statusCode: 400,
+          };
+        }
+
+        returnEntry.out_product_id = item.out_product_id;
         order.outsourced_dispatch_items.push(returnEntry);
       }
     }
@@ -956,38 +979,24 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
       }
     }
 
-    // Check if all original dispatch items are returned
-    const allDispatched = order.dispatch_items.filter(
-      (item) => item.status === "dispatched"
-    );
-    const allOutDispatched = order.outsourced_dispatch_items.filter(
-      (item) => item.status === "dispatched"
+    // Check if all dispatch items and outsourced dispatch items are returned or in-return
+    const allItemsReturned = order.dispatch_items.every(
+      (item) => item.status === "returned"
     );
 
-    const allReturns = order.dispatch_items.filter(
-      (item) => item.status === "returned" || item.status === "in-return"
-    );
-    const allOutReturns = order.outsourced_dispatch_items.filter(
-      (item) => item.status === "returned" || item.status === "in-return"
+    const allOutsourcedItemsReturned = order.outsourced_dispatch_items.every(
+      (item) => item.status === "returned"
     );
 
-    if (
-      allDispatched.length > 0 &&
-      allDispatched.length === allReturns.length &&
-      allOutDispatched.length > 0 &&
-      allOutDispatched.length === allOutReturns.length
-    ) {
-      order.status = "Returned";
-    } else {
-      order.status = "in-return";
-    }
+    order.status =
+      allItemsReturned && allOutsourcedItemsReturned ? "Returned" : "in-return";
 
     await order.save({ session });
     await session.commitTransaction();
 
     return {
       success: true,
-      message: "Order return recorded successfully as new dispatch entries",
+      message: "Return recorded and inventory updated successfully",
       data: {
         orderId: order._id,
         status: order.status,
