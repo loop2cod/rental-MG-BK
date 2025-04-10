@@ -933,13 +933,13 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
       };
 
       if (item.product_id) {
-        const matchingDispatch = order.dispatch_items.find(
+        const dispatchedMatch = order.dispatch_items.find(
           (di) =>
             di.product_id?.toString() === item.product_id.toString() &&
             di.status === "dispatched"
         );
 
-        if (!matchingDispatch) {
+        if (!dispatchedMatch) {
           await session.abortTransaction();
           return {
             success: false,
@@ -956,13 +956,13 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
           quantity: item.quantity,
         });
       } else if (item.out_product_id) {
-        const matchingOutDispatch = order.outsourced_dispatch_items.find(
-          (di) =>
-            di.out_product_id?.toString() === item.out_product_id.toString() &&
-            di.status === "dispatched"
+        const outDispatchMatch = order.outsourced_dispatch_items.find(
+          (odi) =>
+            odi.out_product_id?.toString() === item.out_product_id.toString() &&
+            odi.status === "dispatched"
         );
 
-        if (!matchingOutDispatch) {
+        if (!outDispatchMatch) {
           await session.abortTransaction();
           return {
             success: false,
@@ -984,16 +984,17 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
 
       if (inventory) {
         inventory.available_quantity += update.quantity;
-        inventory.reserved_quantity -= update.quantity;
-        inventory.reserved_quantity = Math.max(0, inventory.reserved_quantity);
+        inventory.reserved_quantity = Math.max(
+          0,
+          inventory.reserved_quantity - update.quantity
+        );
         inventory.quantity =
           inventory.available_quantity + inventory.reserved_quantity;
-
         await inventory.save({ session });
       }
     }
 
-    // Check full return for normal products
+    // 🧠 Check if ALL dispatched product items have been returned
     const allProductItemsReturned = order.order_items.every((orderItem) => {
       const dispatchedQty = order.dispatch_items
         .filter(
@@ -1003,7 +1004,7 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
         )
         .reduce((sum, item) => sum + item.quantity, 0);
 
-      const returnedQty = order.dispatch_items
+      const returnedQtyFromDB = order.dispatch_items
         .filter(
           (ri) =>
             ri.product_id?.toString() === orderItem.product_id?.toString() &&
@@ -1011,27 +1012,31 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
         )
         .reduce((sum, item) => sum + item.quantity, 0);
 
-      return dispatchedQty > 0 && returnedQty >= dispatchedQty;
+      const returnedQtyFromRequest = returnData
+        .filter(
+          (item) =>
+            item.product_id?.toString() === orderItem.product_id?.toString()
+        )
+        .reduce((sum, item) => sum + item.quantity, 0);
+
+      return (
+        dispatchedQty > 0 &&
+        returnedQtyFromDB + returnedQtyFromRequest >= dispatchedQty
+      );
     });
 
-    // Check full return for outsourced items
     const allOutsourcedItemsReturned = order.outsourced_items.every(
       (outItem) => {
         const dispatchedQty = order.outsourced_dispatch_items
           .filter(
             (odi) =>
-              (odi.out_product_id?.toString() ===
-                outItem.out_product_id?.toString() ||
-                odi.item?.order_items?.some(
-                  (oi) =>
-                    oi.out_product_id?.toString() ===
-                    outItem.out_product_id?.toString()
-                )) &&
+              odi.out_product_id?.toString() ===
+                outItem.out_product_id?.toString() &&
               odi.status === "dispatched"
           )
-          .reduce((sum, odi) => sum + odi.quantity, 0);
+          .reduce((sum, item) => sum + item.quantity, 0);
 
-        const returnedQty = order.outsourced_dispatch_items
+        const returnedQtyFromDB = order.outsourced_dispatch_items
           .filter(
             (ri) =>
               ri.out_product_id?.toString() ===
@@ -1039,15 +1044,80 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
           )
           .reduce((sum, item) => sum + item.quantity, 0);
 
-        return dispatchedQty > 0 && returnedQty >= dispatchedQty;
+        const returnedQtyFromRequest = returnData
+          .filter(
+            (item) =>
+              item.out_product_id?.toString() ===
+              outItem.out_product_id?.toString()
+          )
+          .reduce((sum, item) => sum + item.quantity, 0);
+
+        return (
+          dispatchedQty > 0 &&
+          returnedQtyFromDB + returnedQtyFromRequest >= dispatchedQty
+        );
       }
     );
 
-    // Set final order status
-    order.status =
-      allProductItemsReturned && allOutsourcedItemsReturned
-        ? "Returned"
-        : "in-return";
+    // ✅ Set order status
+    const totalReturnedProductQty = order.dispatch_items
+      .filter((i) => i.status === "returned")
+      .reduce((sum, i) => sum + i.quantity, 0);
+    const totalReturnedOutProdQty = order.outsourced_dispatch_items
+      .filter((i) => i.status === "returned")
+      .reduce((sum, i) => sum + i.quantity, 0);
+
+    const hasPendingProductReturn = order.order_items.some((orderItem) => {
+      const dispatched = order.dispatch_items
+        .filter(
+          (i) =>
+            i.product_id?.toString() === orderItem.product_id?.toString() &&
+            i.status === "dispatched"
+        )
+        .reduce((s, i) => s + i.quantity, 0);
+
+      const returned = order.dispatch_items
+        .filter(
+          (i) =>
+            i.product_id?.toString() === orderItem.product_id?.toString() &&
+            i.status === "returned"
+        )
+        .reduce((s, i) => s + i.quantity, 0);
+
+      return returned < dispatched;
+    });
+
+    const hasPendingOutProductReturn = order.outsourced_items.some(
+      (outItem) => {
+        const dispatched = order.outsourced_dispatch_items
+          .filter(
+            (i) =>
+              i.out_product_id?.toString() ===
+                outItem.out_product_id?.toString() && i.status === "dispatched"
+          )
+          .reduce((s, i) => s + i.quantity, 0);
+
+        const returned = order.outsourced_dispatch_items
+          .filter(
+            (i) =>
+              i.out_product_id?.toString() ===
+                outItem.out_product_id?.toString() && i.status === "returned"
+          )
+          .reduce((s, i) => s + i.quantity, 0);
+
+        return returned < dispatched;
+      }
+    );
+    console.log("haspendingoutproductreturn=>", hasPendingOutProductReturn);
+    console.log("hasPendingProductReturn=>", hasPendingProductReturn);
+
+    if (totalReturnedProductQty === 0 && totalReturnedOutProdQty === 0) {
+      order.status = "dispatched"; // still not returned
+    } else if (!hasPendingProductReturn && !hasPendingOutProductReturn) {
+      order.status = "Returned";
+    } else {
+      order.status = "in-return";
+    }
 
     await order.save({ session });
     await session.commitTransaction();
