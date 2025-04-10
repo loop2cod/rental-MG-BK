@@ -115,7 +115,13 @@ export const addBooking = async (fields, userId) => {
       <p>We look forward to serving you!</p>
     `;
 
-    // await sendEmail([process.env.ADMIN_EMAIL], emailSubject, emailBody);
+    setImmediate(() => {
+      sendEmail(
+        [process.env.ADMIN_EMAIL, process.env.ADMIN_EMAIL2],
+        emailSubject,
+        emailBody
+      );
+    });
 
     return {
       success: true,
@@ -307,7 +313,6 @@ export const listBookings = async (
     if (searchQuery.$or.length === 0) {
       delete searchQuery.$or;
     }
-    
 
     // Fetch bookings with pagination
     const bookings = await Booking.find(searchQuery)
