@@ -115,7 +115,7 @@ export const addBooking = async (fields, userId) => {
       <p>We look forward to serving you!</p>
     `;
 
-    await sendEmail([process.env.ADMIN_EMAIL], emailSubject, emailBody);
+    // await sendEmail([process.env.ADMIN_EMAIL], emailSubject, emailBody);
 
     return {
       success: true,
