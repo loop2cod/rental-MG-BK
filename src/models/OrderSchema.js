@@ -29,7 +29,7 @@ const OrderSchema = new mongoose.Schema(
     discount: { type: Number, default: 0 },
     sub_total: { type: Number },
     total_amount: { type: Number, required: true },
-    amount_paid: { type: Number,default: 0  },
+    amount_paid: { type: Number, default: 0 },
     order_items: [
       {
         product_id: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
@@ -60,7 +60,7 @@ const OrderSchema = new mongoose.Schema(
         dispatched_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         status: {
           type: String,
-          enum: ["dispatched", "delivered", "in-return", "returned"],
+          enum: ["dispatched", "returned"],
           default: "dispatched",
         }, // Status of dispatch for this item
       },
@@ -77,7 +77,7 @@ const OrderSchema = new mongoose.Schema(
         dispatched_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         status: {
           type: String,
-          enum: ["dispatched", "delivered", "in-return", "returned"],
+          enum: ["dispatched", "returned"],
           default: "dispatched",
         },
       },
@@ -85,7 +85,7 @@ const OrderSchema = new mongoose.Schema(
     total_quantity: Number,
     status: {
       type: String,
-      enum: ["initiated", "dispatched", "delivered", "in-return", "Returned"],
+      enum: ["initiated", "in-dispatch", "dispatched", "in-return", "Returned"],
       default: "initiated",
     },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

@@ -116,6 +116,7 @@ export const addBooking = async (fields, userId) => {
     `;
 
     setImmediate(() => {
+      console.log("Sending email initiated");      
       sendEmail(
         [process.env.ADMIN_EMAIL, process.env.ADMIN_EMAIL2],
         emailSubject,

@@ -747,7 +747,6 @@ export const handleOrderDispatch = async (orderId, dispatchData, userId) => {
       };
     }
 
-    // Validate dispatchData
     if (!dispatchData || !Array.isArray(dispatchData)) {
       return {
         success: false,
@@ -756,10 +755,7 @@ export const handleOrderDispatch = async (orderId, dispatchData, userId) => {
       };
     }
 
-    // Prepare dispatch items and outsourced dispatch items
-    const dispatchItems = [];
-    const outsourcedDispatchItems = [];
-
+    // Validate input items
     for (const item of dispatchData) {
       if (
         (!item.product_id && !item.out_product_id) ||
@@ -767,88 +763,107 @@ export const handleOrderDispatch = async (orderId, dispatchData, userId) => {
         !item.dispatch_date ||
         !item.dispatch_time
       ) {
+        await session.abortTransaction();
         return {
           success: false,
           message:
-            "Invalid dispatch item data: either product_id or out_product_id is required, along with quantity, dispatch_date, and dispatch_time",
+            "Each dispatch item must include product_id or out_product_id, quantity, dispatch_date, and dispatch_time",
           statusCode: 400,
         };
       }
 
-      const dispatchItem = {
+      const dispatchEntry = {
         quantity: item.quantity,
-        dispatch_date: item.dispatch_date,
+        dispatch_date: new Date(item.dispatch_date),
         dispatch_time: item.dispatch_time,
         dispatched_by: userId,
-        status: "dispatched", // Initial status
+        status: "dispatched",
       };
 
-      if (item.out_product_id) {
-        dispatchItem.out_product_id = item.out_product_id;
-        outsourcedDispatchItems.push(dispatchItem);
-      } else {
-        dispatchItem.product_id = item.product_id;
-        dispatchItems.push(dispatchItem);
+      if (item.product_id) {
+        dispatchEntry.product_id = item.product_id;
+        order.dispatch_items.push(dispatchEntry);
+      } else if (item.out_product_id) {
+        dispatchEntry.out_product_id = item.out_product_id;
+        order.outsourced_dispatch_items.push(dispatchEntry);
       }
     }
 
-    // Update order with dispatch items
-    order.dispatch_items = [...(order.dispatch_items || []), ...dispatchItems];
-    order.outsourced_dispatch_items = [
-      ...(order.outsourced_dispatch_items || []),
-      ...outsourcedDispatchItems,
-    ];
-
-    // Check if all items are dispatched
-    let allItemsDispatched = true;
-    for (const orderItem of order.order_items) {
-      const dispatchedQuantity = order.dispatch_items
+    // Check all normal order items
+    const allOrderItemsDispatched = order.order_items.every((orderItem) => {
+      const dispatchedQtyFromDB = order.dispatch_items
         .filter(
           (di) =>
-            di.product_id &&
-            orderItem.product_id &&
-            di.product_id.toString() === orderItem.product_id.toString()
+            di.product_id?.toString() === orderItem.product_id?.toString() &&
+            di.status === "dispatched"
         )
         .reduce((sum, di) => sum + di.quantity, 0);
 
-      if (dispatchedQuantity < orderItem.quantity) {
-        allItemsDispatched = false;
-        break;
-      }
-    }
-
-    let allOutsourcedItemsDispatched = true;
-    for (const outsourcedItem of order.outsourced_items) {
-      const dispatchedQuantity = order.outsourced_dispatch_items
+      const dispatchedQtyFromRequest = dispatchData
         .filter(
-          (di) =>
-            di.out_product_id &&
-            outsourcedItem.out_product_id &&
-            di.out_product_id.toString() ===
-              outsourcedItem.out_product_id.toString()
+          (item) =>
+            item.product_id?.toString() === orderItem.product_id?.toString()
         )
-        .reduce((sum, di) => sum + di.quantity, 0);
+        .reduce((sum, item) => sum + item.quantity, 0);
 
-      if (dispatchedQuantity < outsourcedItem.quantity) {
-        allOutsourcedItemsDispatched = false;
-        break;
+      const totalQty = dispatchedQtyFromDB + dispatchedQtyFromRequest;
+      return totalQty >= orderItem.quantity;
+    });
+
+    // Check all outsourced items
+    const allOutsourcedItemsDispatched = order.outsourced_items.every(
+      (outItem) => {
+        const dispatchedQtyFromDB = order.outsourced_dispatch_items
+          .filter(
+            (odi) =>
+              odi.out_product_id?.toString() ===
+                outItem.out_product_id?.toString() &&
+              odi.status === "dispatched"
+          )
+          .reduce((sum, odi) => sum + odi.quantity, 0);
+
+        const dispatchedQtyFromRequest = dispatchData
+          .filter(
+            (item) =>
+              item.out_product_id?.toString() ===
+              outItem.out_product_id?.toString()
+          )
+          .reduce((sum, item) => sum + item.quantity, 0);
+
+        const totalQty = dispatchedQtyFromDB + dispatchedQtyFromRequest;
+        return totalQty >= outItem.quantity;
       }
-    }
+    );
 
-    // Update order status based on dispatch progress
-    if (allItemsDispatched && allOutsourcedItemsDispatched) {
-      order.status = "delivered";
+    const totalDispatchedProductQty = order.dispatch_items
+      .filter((item) => item.status === "dispatched")
+      .reduce((sum, item) => sum + (item.quantity || 0), 0);
+
+    const totalDispatchedOutsourcedQty = order.outsourced_dispatch_items
+      .filter((item) => item.status === "dispatched")
+      .reduce((sum, item) => sum + (item.quantity || 0), 0);
+
+    const hasOutsourcedProductsLeft =
+      order.outsourced_items.length !== order.outsourced_dispatch_items.length;
+
+    const hasProductsLeft =
+      order.order_items.length !== order.dispatch_items.length;
+
+    // ✅ Set status
+    if (totalDispatchedProductQty === 0 && totalDispatchedOutsourcedQty === 0) {
+      order.status = "initiated";
+    } else if (!hasOutsourcedProductsLeft && !hasProductsLeft) {
+      order.status = "dispatched";
     } else {
-      order.status = "initiated"; // Partial dispatch
+      order.status = "in-dispatch";
     }
 
-    // Save the updated order
     await order.save({ session });
     await session.commitTransaction();
 
     return {
       success: true,
-      message: "Order dispatch recorded successfully",
+      message: "Dispatch recorded successfully",
       data: {
         orderId: order._id,
         status: order.status,
@@ -883,7 +898,6 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
       };
     }
 
-    // Validate returnData
     if (!returnData || !Array.isArray(returnData)) {
       return {
         success: false,
@@ -929,7 +943,7 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
           await session.abortTransaction();
           return {
             success: false,
-            message: `No dispatched record found for product ${item.product_id} on ${item.dispatch_date} at ${item.dispatch_time}`,
+            message: `No valid dispatch record found for product ${item.product_id}`,
             statusCode: 400,
           };
         }
@@ -952,7 +966,7 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
           await session.abortTransaction();
           return {
             success: false,
-            message: `No dispatched record found for outsourced product ${item.out_product_id} on ${item.dispatch_date} at ${item.dispatch_time}`,
+            message: `No valid dispatch record found for outsourced product ${item.out_product_id}`,
             statusCode: 400,
           };
         }
@@ -979,17 +993,61 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
       }
     }
 
-    // Check if all dispatch items and outsourced dispatch items are returned or in-return
-    const allItemsReturned = order.dispatch_items.every(
-      (item) => item.status === "returned"
+    // Check full return for normal products
+    const allProductItemsReturned = order.order_items.every((orderItem) => {
+      const dispatchedQty = order.dispatch_items
+        .filter(
+          (di) =>
+            di.product_id?.toString() === orderItem.product_id?.toString() &&
+            di.status === "dispatched"
+        )
+        .reduce((sum, item) => sum + item.quantity, 0);
+
+      const returnedQty = order.dispatch_items
+        .filter(
+          (ri) =>
+            ri.product_id?.toString() === orderItem.product_id?.toString() &&
+            ri.status === "returned"
+        )
+        .reduce((sum, item) => sum + item.quantity, 0);
+
+      return dispatchedQty > 0 && returnedQty >= dispatchedQty;
+    });
+
+    // Check full return for outsourced items
+    const allOutsourcedItemsReturned = order.outsourced_items.every(
+      (outItem) => {
+        const dispatchedQty = order.outsourced_dispatch_items
+          .filter(
+            (odi) =>
+              (odi.out_product_id?.toString() ===
+                outItem.out_product_id?.toString() ||
+                odi.item?.order_items?.some(
+                  (oi) =>
+                    oi.out_product_id?.toString() ===
+                    outItem.out_product_id?.toString()
+                )) &&
+              odi.status === "dispatched"
+          )
+          .reduce((sum, odi) => sum + odi.quantity, 0);
+
+        const returnedQty = order.outsourced_dispatch_items
+          .filter(
+            (ri) =>
+              ri.out_product_id?.toString() ===
+                outItem.out_product_id?.toString() && ri.status === "returned"
+          )
+          .reduce((sum, item) => sum + item.quantity, 0);
+
+        return dispatchedQty > 0 && returnedQty >= dispatchedQty;
+      }
     );
 
-    const allOutsourcedItemsReturned = order.outsourced_dispatch_items.every(
-      (item) => item.status === "returned"
-    );
-
+    // Set final order status
     order.status =
-      allItemsReturned && allOutsourcedItemsReturned ? "Returned" : "in-return";
+      allProductItemsReturned && allOutsourcedItemsReturned
+        ? "Returned"
+        : "in-return";
 
     await order.save({ session });
     await session.commitTransaction();
