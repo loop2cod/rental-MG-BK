@@ -17,6 +17,7 @@ const transporter = nodemailer.createTransport({
  * @returns {Promise<{success: boolean, message: string}>}
  */
 const sendEmail = async (to, subject, html) => {
+  
   try {
     // Convert single email to array if necessary
     const recipients = Array.isArray(to) ? to : [to];
@@ -34,7 +35,7 @@ const sendEmail = async (to, subject, html) => {
 
     const mailOptions = {
       from: `"Rental Service" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_RECIPIENTS,
+      to: toField,
       subject,
       html,
     };

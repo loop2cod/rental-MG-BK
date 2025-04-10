@@ -49,7 +49,7 @@ const sendErrorEmail = async (logLevel, errorMessage) => {
   };
 
   try {
-    // await transporter.sendMail(mailOptions);
+    await transporter.sendMail(mailOptions);
   } catch (error) {
     console.error("Error sending email:", error);
   }
@@ -62,7 +62,6 @@ logger.on("data", (log) => {
   }
 });
 
-// Example log usage
-logger.error("Database connection failed", { error: new Error("Connection timeout") });
+// logger.error("Database connection failed", { error: new Error("Connection timeout") });
 
 export default logger;
