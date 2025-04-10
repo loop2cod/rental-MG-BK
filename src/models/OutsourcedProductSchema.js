@@ -5,6 +5,7 @@ const OutsourcedProductSchema = new mongoose.Schema(
     supplier_id: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier" },
     product_name: { type: String, required: true },
     unit_cost: { type: Number, required: true },
+    purchase_rate: { type: Number, required: true },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     isDeleted: { type: Boolean, default: false },

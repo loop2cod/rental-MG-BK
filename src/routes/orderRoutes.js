@@ -5,6 +5,8 @@ import {
   getOrderDetailsController,
   getOrdersComparisonController,
   getOrdersWithPaginationSearchController,
+  handleDamagedOutsourcedProductsController,
+  handleDamagedProductsController,
   handleOrderDispatchController,
   handleOrderReturnController,
   updateOrderController,
@@ -36,5 +38,17 @@ router.get(
 router.post("/order-dispatch", isAuthenticated, handleOrderDispatchController);
 
 router.post("/order-return", isAuthenticated, handleOrderReturnController);
+
+router.post(
+  "/handle-damaged-products",
+  isAuthenticated,
+  handleDamagedProductsController
+);
+
+router.post(
+  "/handle-damaged-outsourced-products",
+  isAuthenticated,
+  handleDamagedOutsourcedProductsController
+);
 
 export default router;

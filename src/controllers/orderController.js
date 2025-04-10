@@ -4,6 +4,8 @@ import {
   getOrderBookingComparisonList,
   getOrderDetails,
   getOrderListWithPaginationAndSearch,
+  handleDamagedOutsourcedProducts,
+  handleDamagedProducts,
   handleOrderDispatch,
   handleOrderReturn,
   updateOrder,
@@ -131,6 +133,48 @@ export const handleOrderReturnController = async (req, res) => {
     );
   } catch (error) {
     console.error("handleOrderReturnController error => ", error);
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const handleDamagedProductsController = async (req, res) => {
+  try {
+    const { order_id, damaged_products } = req.body;
+    const response = await handleDamagedProducts(
+      order_id,
+      damaged_products,
+      req.user?._id
+    );
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    console.error("handleDamagedProductsController error => ", error);
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const handleDamagedOutsourcedProductsController = async (req, res) => {
+  try {
+    const { order_id, damaged_outsourced_products } = req.body;
+    const response = await handleDamagedOutsourcedProducts(
+      order_id,
+      damaged_outsourced_products,
+      req.user?._id
+    );
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    console.error("handleDamagedOutsourcedProductsController error => ", error);
     sendResponse(res, 500, false, "Internal server error");
   }
 };

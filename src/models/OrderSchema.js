@@ -82,6 +82,23 @@ const OrderSchema = new mongoose.Schema(
         },
       },
     ],
+    damaged_products: [
+      {
+        product_id: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+        quantity: Number,
+        remarks: String,
+      },
+    ],
+    damaged_outsourced_products: [
+      {
+        out_product_id: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "OutsourcedProduct",
+        },
+        quantity: Number,
+        remarks: String,
+      },
+    ],
     total_quantity: Number,
     status: {
       type: String,

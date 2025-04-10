@@ -116,7 +116,7 @@ export const addBooking = async (fields, userId) => {
     `;
 
     setImmediate(() => {
-      console.log("Sending email initiated");      
+      console.log("Sending email initiated");
       sendEmail(
         [process.env.ADMIN_EMAIL, process.env.ADMIN_EMAIL2],
         emailSubject,
@@ -342,6 +342,32 @@ export const listBookings = async (
         },
       },
       statusCode: 200,
+    };
+  } catch (error) {
+    console.error("listBookings error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const listBookingWithoutPagination = async () => {
+  try {
+    const bookings = await Booking.find({ isDeleted: false });
+    if (!bookings) {
+      return {
+        success: false,
+        message: "No bookings found",
+        statusCode: 404,
+      };
+    }
+    return {
+      success: true,
+      message: "Bookings retrieved successfully",
+      statusCode: 200,
+      data: bookings,
     };
   } catch (error) {
     console.error("listBookings error => ", error);

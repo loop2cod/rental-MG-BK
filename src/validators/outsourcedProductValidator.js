@@ -22,6 +22,11 @@ export const validateOutProduct = [
     .isFloat({ gt: 0 })
     .withMessage("Unit cost must be a positive number"),
 
+  body("purchase_rate")
+    .notEmpty()
+    .withMessage("Purchase rate is required")
+    .isFloat({ gt: 0 })
+    .withMessage("Purchase rate must be a positive number"),
 
   // Handle validation errors
   (req, res, next) => {

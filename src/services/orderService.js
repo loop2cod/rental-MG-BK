@@ -1143,3 +1143,177 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
     session.endSession();
   }
 };
+
+export const handleDamagedProducts = async (
+  orderId,
+  damagedProducts,
+  userId
+) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const order = await Order.findById(orderId).session(session);
+
+    if (!order) {
+      return {
+        success: false,
+        message: "No order found",
+        statusCode: 404,
+      };
+    }
+
+    if (!damagedProducts || !Array.isArray(damagedProducts)) {
+      return {
+        success: false,
+        message: "Invalid damaged products provided",
+        statusCode: 400,
+      };
+    }
+
+    // Get all product IDs in the order
+    const orderProductIds = order.order_items.map((item) =>
+      item.product_id?.toString()
+    );
+
+    // Validate that all damaged products are in the order
+    const invalidProducts = damagedProducts.filter(
+      (product) => !orderProductIds.includes(product.product_id?.toString())
+    );
+
+    if (invalidProducts.length > 0) {
+      return {
+        success: false,
+        message: `Some products are not part of the order: ${invalidProducts
+          .map((p) => p.product_id)
+          .join(", ")}`,
+        statusCode: 400,
+      };
+    }
+
+    // Create array of damaged product objects
+    const damagedProductsArray = damagedProducts.map((product) => ({
+      product_id: product.product_id,
+      quantity: product.quantity,
+      remarks: product.remarks,
+    }));
+
+    // Update order with all damaged products
+    await Order.findByIdAndUpdate(
+      { _id: orderId },
+      { $push: { damaged_products: { $each: damagedProductsArray } } },
+      { session }
+    );
+
+    await session.commitTransaction();
+    return {
+      success: true,
+      message: "Damaged products recorded",
+      data: damagedProductsArray,
+      statusCode: 200,
+    };
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Error handling damaged products:", error);
+    return {
+      success: false,
+      message: error.message || "Internal server error",
+      statusCode: 500,
+    };
+  } finally {
+    session.endSession();
+  }
+};
+
+export const handleDamagedOutsourcedProducts = async (
+  orderId,
+  damagedOutsourcedProducts,
+  userId
+) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const order = await Order.findById(orderId).session(session);
+
+    if (!order) {
+      return {
+        success: false,
+        message: "No order found",
+        statusCode: 404,
+      };
+    }
+
+    if (
+      !damagedOutsourcedProducts ||
+      !Array.isArray(damagedOutsourcedProducts)
+    ) {
+      return {
+        success: false,
+        message: "Invalid damaged outsourced products provided",
+        statusCode: 400,
+      };
+    }
+
+    // Get all outsourced product IDs in the order
+    const orderOutsourcedProductIds = order.outsourced_items.map((item) =>
+      item.out_product_id?.toString()
+    );
+
+    // Validate that all damaged outsourced products are in the order
+    const invalidProducts = damagedOutsourcedProducts.filter(
+      (product) =>
+        !orderOutsourcedProductIds.includes(product.out_product_id?.toString())
+    );
+
+    if (invalidProducts.length > 0) {
+      return {
+        success: false,
+        message: `Some outsourced products are not part of the order: ${invalidProducts
+          .map((p) => p.out_product_id)
+          .join(", ")}`,
+        statusCode: 400,
+      };
+    }
+
+    // Create array of damaged outsourced product objects
+    const damagedOutsourcedProductsArray = damagedOutsourcedProducts.map(
+      (product) => ({
+        out_product_id: product.out_product_id,
+        quantity: product.quantity,
+        remarks: product.remarks,
+      })
+    );
+
+    // Update order with all damaged outsourced products
+    await Order.findByIdAndUpdate(
+      { _id: orderId },
+      {
+        $push: {
+          damaged_outsourced_products: {
+            $each: damagedOutsourcedProductsArray,
+          },
+        },
+      },
+      { session }
+    );
+
+    await session.commitTransaction();
+    return {
+      success: true,
+      message: "Damaged outsourced products recorded",
+      data: damagedOutsourcedProductsArray,
+      statusCode: 200,
+    };
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Error handling damaged outsourced products:", error);
+    return {
+      success: false,
+      message: error.message || "Internal server error",
+      statusCode: 500,
+    };
+  } finally {
+    session.endSession();
+  }
+};
