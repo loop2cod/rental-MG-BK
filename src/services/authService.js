@@ -54,7 +54,6 @@ export const loginUser = async (mobile, password, res) => {
       // maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-
     return {
       success: true,
       user: { id: user._id, name: user.name, role: user.user_role },
@@ -163,7 +162,7 @@ export const getAuthToken = async (req, res) => {
       return {
         success: false,
         message: "No tokens provided",
-        sessionOut:true,
+        sessionOut: true,
         statusCode: 401,
       };
     }
@@ -178,13 +177,20 @@ export const getAuthToken = async (req, res) => {
       return { success: true, statusCode: 200 };
     } catch (accessTokenError) {
       // If access token is expired, try to refresh it
-      if (accessTokenError.name === 'TokenExpiredError' && refreshToken) {
+      if (accessTokenError.name === "TokenExpiredError" && refreshToken) {
         try {
-          const refreshDecoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+          const refreshDecoded = jwt.verify(
+            refreshToken,
+            process.env.JWT_REFRESH_SECRET
+          );
           const user = await User.findById(refreshDecoded?.userId);
-          
+
           if (!user) {
-            return { success: false, message: "User not found", statusCode: 404 };
+            return {
+              success: false,
+              message: "User not found",
+              statusCode: 404,
+            };
           }
 
           // Generate new access token
@@ -201,10 +207,10 @@ export const getAuthToken = async (req, res) => {
             sameSite: "strict",
           });
 
-          return { 
-            success: true, 
+          return {
+            success: true,
             statusCode: 200,
-            newAccessToken 
+            newAccessToken,
           };
         } catch (refreshTokenError) {
           console.log("Refresh token error => ", refreshTokenError);
@@ -275,3 +281,4 @@ export const checkAuthenticated = async (req, res) => {
     }
   }
 };
+
