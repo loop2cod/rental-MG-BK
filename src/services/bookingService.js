@@ -586,6 +586,10 @@ export const cancelBooking = async (id, remarks) => {
         statusCode: 404,
       };
     }
+    createNotification(
+      `Booking ${updatedBooking?.booking_id} has been cancelled`,
+      "success"
+    );
 
     return {
       success: true,

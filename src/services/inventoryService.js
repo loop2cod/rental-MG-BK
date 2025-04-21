@@ -2,6 +2,7 @@ import Product from "../models/ProductSchema.js";
 import Inventory from "../models/InventorySchema.js";
 import OutsourcedProduct from "../models/OutsourcedProductSchema.js";
 import Category from "../models/CategorySchema.js";
+import createNotification from "../utils/createNotification.js";
 
 export const addProductToInventory = async (fields, userId) => {
 
@@ -38,6 +39,7 @@ export const addProductToInventory = async (fields, userId) => {
       updated_by: userId,
     });
     await newInventoryItem.save();
+    createNotification("Product added to inventory", "success");
 
     return {
       success: true,
@@ -83,6 +85,7 @@ export const addOutsourcedProduct = async (fields, userId) => {
     });
 
     await newProduct.save();
+    createNotification("Outsourced product added", "success");
 
     return {
       success: true,

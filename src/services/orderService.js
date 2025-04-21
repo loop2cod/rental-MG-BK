@@ -4,6 +4,7 @@ import Booking from "../models/BookingSchema.js";
 import User from "../models/UserSchema.js";
 import mongoose from "mongoose";
 import Product from "../models/ProductSchema.js";
+import createNotification from "../utils/createNotification.js";
 
 export const createOrder = async (orderData, userId) => {
   let {
@@ -223,6 +224,7 @@ export const createOrder = async (orderData, userId) => {
 
     // Commit the transaction
     await session.commitTransaction();
+    createNotification("Order created successfully", "success");
 
     return {
       success: true,
