@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const OrderSchema = new mongoose.Schema(
   {
+    order_id: {
+      type: String,
+      unique: true,
+      default: () => `ORD-${uuidv4().substring(0, 8).toUpperCase()}`,
+    },
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     booking_id: { type: mongoose.Schema.Types.ObjectId, ref: "Booking" },
     address: { type: String, required: true },
@@ -111,5 +116,13 @@ const OrderSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Pre-save hook to ensure unique order_id
+OrderSchema.pre("save", function (next) {
+  if (!this.order_id) {
+    this.order_id = `ORD-${uuidv4().substring(0, 8).toUpperCase()}`;
+  }
+  next();
+});
 
 export default mongoose.model("Order", OrderSchema);

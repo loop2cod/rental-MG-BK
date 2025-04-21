@@ -3,7 +3,8 @@ import Inventory from "../models/InventorySchema.js";
 import OutsourcedProduct from "../models/OutsourcedProductSchema.js";
 import Category from "../models/CategorySchema.js";
 
-export const addProductToInventory = async (fields, files, userId) => {
+export const addProductToInventory = async (fields, userId) => {
+
   try {
     const existingProduct = await Product.findOne({ name: fields.name });
     if (existingProduct) {
@@ -14,25 +15,13 @@ export const addProductToInventory = async (fields, files, userId) => {
       };
     }
 
-    // Process uploaded files
-    const images = [];
-    if (files.images) {
-      if (Array.isArray(files.images)) {
-        files.images.forEach((file) => {
-          images.push(file.path);
-        });
-      } else {
-        images.push(files.images.path);
-      }
-    }
-
     // Create the product in the Product collection
     const newProduct = new Product({
       name: fields.name,
       description: fields.description,
       unit_cost: fields.unit_cost,
-      features: JSON.parse(fields.features || "{}"),
-      images,
+      features: fields.features || "{}",
+      images: fields.images || [],
       category_id: fields.category_id,
       created_by: userId,
       updated_by: userId,
@@ -147,8 +136,8 @@ export const updateProductOfInventory = async (productId, fields) => {
         name: fields.name,
         description: fields.description,
         unit_cost: fields.unit_cost,
-        features: JSON.parse(fields.features || "{}"),
-        images: fields.images,
+        features: fields.features || "{}",
+        images: fields.images || [],
         category_id: fields.category_id,
       },
       { new: true }
@@ -326,6 +315,7 @@ export const getAllProducts = async (
             categoryDetails: 0,
           },
         },
+        { $sort: { createdAt: -1 } },
         { $skip: skip },
         { $limit: limit },
       ]),
@@ -496,7 +486,7 @@ export const getAllProductsWithoutPagination = async () => {
           __v: 1,
           quantity: "$inventory.quantity",
           reserved_quantity: "$inventory.reserved_quantity",
-          category: 1
+          category: 1,
         },
       },
     ]);
@@ -657,8 +647,8 @@ export const getAllProductsWithAvailableQuantity = async () => {
           quantity: "$inventory.quantity",
           reserved_quantity: "$inventory.reserved_quantity",
           available_quantity: "$inventory.available_quantity",
-        }
-      }
+        },
+      },
     ]);
 
     return {
@@ -675,4 +665,3 @@ export const getAllProductsWithAvailableQuantity = async () => {
     };
   }
 };
-

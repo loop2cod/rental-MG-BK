@@ -3,11 +3,13 @@ import Inventory from "../models/InventorySchema.js";
 import Booking from "../models/BookingSchema.js";
 import User from "../models/UserSchema.js";
 import mongoose from "mongoose";
+import Product from "../models/ProductSchema.js";
 
 export const createOrder = async (orderData, userId) => {
   let {
     booking_id,
     user_phone,
+    user_secondary_mobile,
     user_name,
     user_proof_type,
     user_proof_id,
@@ -92,6 +94,7 @@ export const createOrder = async (orderData, userId) => {
       const newUser = new User({
         name: user_name,
         mobile: user_phone,
+        secondary_mobile: user_secondary_mobile,
         user_role: "customer",
         proof_type: user_proof_type,
         proof_id: user_proof_id,
@@ -301,6 +304,7 @@ export const updateOrder = async (orderId, orderUpdates, userId) => {
       const newUser = new User({
         name: orderUpdates?.user_name,
         mobile: orderUpdates?.user_phone,
+        secondary_mobile: orderUpdates?.user_secondary_mobile,
         user_role: "customer",
         proof_type: orderUpdates?.user_proof_type,
         proof_id: orderUpdates?.user_proof_id,
@@ -505,6 +509,7 @@ export const getOrderListWithPaginationAndSearch = async (
         { status: { $regex: search, $options: "i" } },
         { from_time: { $regex: search, $options: "i" } },
         { to_time: { $regex: search, $options: "i" } },
+        { order_id: { $regex: search, $options: "i" } },
       ];
 
       if (isObjectId) {
@@ -562,7 +567,7 @@ export const getOrderListWithPaginationAndSearch = async (
         path: "user_id",
         select: "name mobile",
       })
-      .sort({ order_date: -1 })
+      .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
@@ -1315,5 +1320,101 @@ export const handleDamagedOutsourcedProducts = async (
     };
   } finally {
     session.endSession();
+  }
+};
+
+export const getProductOrdersHistory = async (productId) => {
+  try {
+    // Fetch product information
+    const product = await Product.aggregate([
+      {
+        $match: {
+          _id: mongoose.Types.ObjectId.createFromHexString(productId),
+        },
+      },
+      {
+        $lookup: {
+          from: "inventories",
+          localField: "_id",
+          foreignField: "product_id",
+          as: "inventoryDetails",
+        },
+      },
+      {
+        $unwind: "$inventoryDetails",
+      },
+      {
+        $project: {
+          name: 1,
+          description: 1,
+          unit_cost: 1,
+          features: 1,
+          reserved_quantity: "$inventoryDetails.reserved_quantity",
+          available_quantity: "$inventoryDetails.available_quantity",
+        },
+      },
+    ]);
+
+    if (product.length === 0) {
+      return {
+        success: false,
+        message: "Product not found",
+        statusCode: 404,
+      };
+    }
+
+    // Fetch full order history
+    const orders = await Order.aggregate([
+      {
+        $match: {
+          "order_items.product_id": mongoose.Types.ObjectId.createFromHexString(productId),
+          isDeleted: false,
+        },
+      },
+      {
+        $unwind: "$order_items",
+      },
+      {
+        $match: {
+          "order_items.product_id": mongoose.Types.ObjectId.createFromHexString(productId),
+        },
+      },
+      {
+        $project: {
+          order_date: 1,
+          total_amount: 1,
+          status: 1,
+          order_items: 1,
+          user_id: 1,
+          address: 1,
+          from_date: 1,
+          to_date: 1,
+          from_time: 1,
+          to_time: 1,
+          discount: 1,
+          sub_total: 1,
+        },
+      },
+      {
+        $sort: { order_date: -1 },
+      },
+    ]);
+
+    return {
+      success: true,
+      message: "Product and order history fetched successfully",
+      data: {
+        product: product[0],
+        orders,
+      },
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("Error fetching product orders history:", error);
+    return {
+      success: false,
+      message: error.message || "Internal server error",
+      statusCode: 500,
+    };
   }
 };

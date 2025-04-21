@@ -4,6 +4,7 @@ import {
   getOrderBookingComparisonList,
   getOrderDetails,
   getOrderListWithPaginationAndSearch,
+  getProductOrdersHistory,
   handleDamagedOutsourcedProducts,
   handleDamagedProducts,
   handleOrderDispatch,
@@ -175,6 +176,23 @@ export const handleDamagedOutsourcedProductsController = async (req, res) => {
     );
   } catch (error) {
     console.error("handleDamagedOutsourcedProductsController error => ", error);
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const getProductOrdersHistoryController = async (req, res) => {
+  try {
+    const { product_id } = req.params;
+    const response = await getProductOrdersHistory(product_id);
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    console.error("getProductOrdersHistoryController error => ", error);
     sendResponse(res, 500, false, "Internal server error");
   }
 };

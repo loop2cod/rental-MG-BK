@@ -1,82 +1,70 @@
-import { validationResult } from "express-validator";
+import { body, validationResult } from "express-validator";
 
 export const validateProduct = [
+  body("name")
+    .notEmpty()
+    .withMessage("Product name is required")
+    .isString()
+    .withMessage("Product name must be a string"),
+
+  body("description")
+    .optional()
+    .isString()
+    .withMessage("Description must be a string"),
+
+  body("images")
+    .optional()
+    .custom((value, { req }) => {
+      if (!req.files?.images) return true;
+      const images = Array.isArray(req.files.images)
+        ? req.files.images
+        : [req.files.images];
+      return images.every((image) => typeof image.path === "string");
+    }),
+
+  body("unit_cost")
+    .notEmpty()
+    .withMessage("Unit cost is required")
+    .isFloat({ gt: 0 })
+    .withMessage("Unit cost must be a positive number"),
+
+  body("category_id")
+    .notEmpty()
+    .withMessage("Category ID is required")
+    .isMongoId()
+    .withMessage("Valid category ID is required"),
+
+  body("features")
+    .optional({ nullable: true })
+    .custom((value) => {
+      try {
+        const parsed = typeof value === 'string' ? JSON.parse(value || "{}") : value;
+        return typeof parsed === "object" && !Array.isArray(parsed);
+      } catch {
+        return false;
+      }
+    })
+    .withMessage("Features must be a valid object"),
+
+  body("images")
+    .optional()
+    .custom((value, { req }) => {
+      if (!req.files?.images) return true;
+      const images = Array.isArray(req.files.images)
+        ? req.files.images
+        : [req.files.images];
+      return images.every((image) => typeof image.path === "string");
+    })
+    .withMessage("Each image must be a valid file"),
+
   (req, res, next) => {
-    const { fields, files } = req;
-    const errors = [];
-
-    // Validate name
-    if (!fields?.name || typeof fields.name !== "string") {
-      errors.push({
-        msg: "Product name is required and must be a string",
-        param: "name",
-      });
-    }
-
-    // Validate description (optional)
-    if (
-      fields?.description &&
-      typeof fields.description !== "string"
-    ) {
-      errors.push({
-        msg: "Description must be a string",
-        param: "description",
-      });
-    }
-
-    // Validate unit_cost
-    if (
-      !fields?.unit_cost ||
-      isNaN(fields.unit_cost) ||
-      Number(fields.unit_cost) <= 0
-    ) {
-      errors.push({
-        msg: "Unit cost is required and must be a positive number",
-        param: "unit_cost",
-      });
-    }
-
-    // Validate category_id
-    if (!fields?.category_id || !/^[0-9a-fA-F]{24}$/.test(fields.category_id)) {
-      errors.push({
-        msg: "Valid category ID is required",
-        param: "category_id",
-      });
-    }
-
-    if (req.method === "PUT") {
-      // Validate features (optional)
-      if (
-        fields.features &&
-        typeof JSON.parse(fields.features || "{}") !== "object"
-      ) {
-        errors.push({
-          msg: "Features must be a valid object",
-          param: "features",
-        });
-      }
-
-      // Validate images (optional)
-      if (files?.images) {
-        const images = Array.isArray(files.images)
-          ? files.images
-          : [files.images];
-        if (!images.every((image) => typeof image.path === "string")) {
-          errors.push({
-            msg: "Each image must be a valid file",
-            param: "images",
-          });
-        }
-      }
-    }
-
-    if (errors.length > 0) {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        errors,
+        errors: errors.array(),
       });
     }
-
     next();
   },
 ];

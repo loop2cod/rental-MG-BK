@@ -1,5 +1,4 @@
 import express from "express";
-import { parseForm } from "../middlewares/parseFormMiddleware.js";
 import {
   addOutsourcedProductController,
   addProduct,
@@ -21,7 +20,6 @@ const router = express.Router();
 router.post(
   "/add-product",
   isAuthenticated,
-  parseForm,
   validateProduct,
   addProduct
 );
@@ -36,7 +34,6 @@ router.post(
 router.put(
   "/update-product/:id",
   isAuthenticated,
-  parseForm,
   validateProduct,
   updateProduct
 );

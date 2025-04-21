@@ -14,8 +14,8 @@ import {
 
 export const addProduct = async (req, res) => {
   try {
-    const { fields, files, user } = req;
-    const response = await addProductToInventory(fields, files, user?._id);
+    const { body } = req;
+    const response = await addProductToInventory(body, req.user?._id);
     sendResponse(
       res,
       response.statusCode,
@@ -160,7 +160,10 @@ export const getOutProductsBasedOnsupplierControler = async (req, res) => {
   }
 };
 
-export const getAllProductsWithAvailableQuantityController = async (req, res) => {
+export const getAllProductsWithAvailableQuantityController = async (
+  req,
+  res
+) => {
   try {
     const response = await getAllProductsWithAvailableQuantity();
 
@@ -172,7 +175,10 @@ export const getAllProductsWithAvailableQuantityController = async (req, res) =>
       response.data
     );
   } catch (error) {
-    console.log("getAllProductsWithAvailableQuantityController error => ", error);
+    console.log(
+      "getAllProductsWithAvailableQuantityController error => ",
+      error
+    );
     sendResponse(res, 500, false, "Internal server error");
   }
 };

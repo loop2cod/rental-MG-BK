@@ -9,7 +9,7 @@ import { sendResponse } from "../middlewares/responseHandler.js";
 
 export const login = async (req, res) => {
   console.log("req.body => ", req.body);
-  
+
   const { mobile, password } = req.body;
 
   try {
@@ -27,10 +27,17 @@ export const login = async (req, res) => {
 };
 
 export const signup = async (req, res) => {
-  const { mobile, password, name, user_role } = req.body;
+  const { mobile, password, name, user_role, secondary_mobile } = req.body;
 
   try {
-    const response = await signupUser(mobile, password, name, user_role, res);
+    const response = await signupUser(
+      mobile,
+      secondary_mobile,
+      password,
+      name,
+      user_role,
+      res
+    );
     sendResponse(
       res,
       response.statusCode,

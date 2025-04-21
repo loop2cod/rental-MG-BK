@@ -17,6 +17,15 @@ export const validateBooking = [
     .isNumeric()
     .withMessage("user_phone must contain only numbers"),
 
+  body("user_secondary_mobile")
+    .optional()
+    .isString()
+    .withMessage("user_secondary_mobile must be a string")
+    .isLength({ min: 10, max: 10 })
+    .withMessage("user_secondary_mobile must be exactly 10 digits")
+    .isNumeric()
+    .withMessage("user_secondary_mobile must contain only numbers"),
+
   body("user_proof_type")
     .optional()
     .isString()

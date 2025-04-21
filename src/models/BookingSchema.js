@@ -1,7 +1,13 @@
 import mongoose from "mongoose";
+import { v4 as uuidv4 } from 'uuid';
 
 const BookingSchema = new mongoose.Schema(
   {
+    booking_id: { 
+      type: String,
+      unique: true,
+      default: () => `BKG-${uuidv4().substring(0, 8).toUpperCase()}`
+    },
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     address: { type: String, required: true },
     from_date: {
@@ -63,5 +69,13 @@ const BookingSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Pre-save hook to ensure unique booking_id
+BookingSchema.pre('save', function(next) {
+  if (!this.booking_id) {
+    this.booking_id = `BKG-${uuidv4().substring(0, 8).toUpperCase()}`;
+  }
+  next();
+});
 
 export default mongoose.model("Booking", BookingSchema);

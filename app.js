@@ -12,7 +12,6 @@ import bookingRoutes from "./src/routes/bookingRoutes.js";
 import orderRoutes from "./src/routes/orderRoutes.js";
 import paymentRoutes from "./src/routes/paymentRoutes.js";
 import cookieParser from "cookie-parser";
-import formidable from "express-formidable";
 import dashboardRoutes from "./src/routes/dashboardRoutes.js";
 import fileHandleRoutes from "./src/routes/fileHandleRoute.js";
 

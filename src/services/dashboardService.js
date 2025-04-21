@@ -1,10 +1,10 @@
 import Booking from "../models/BookingSchema.js";
 import Order from "../models/OrderSchema.js";
 import Inventory from "../models/InventorySchema.js";
+import Notification from "../models/NotificationSchema.js";
 
 export const getDashboardData = async () => {
   try {
-   
     // 3. Total Revenue and Percentage Change
     const currentDate = new Date();
     const currentMonthStart = new Date(
@@ -104,12 +104,13 @@ export const getDashboardData = async () => {
       {
         $group: {
           _id: null,
-          totalQuantity: { $sum: "$available_quantity" }
-        }
-      }
+          totalQuantity: { $sum: "$available_quantity" },
+        },
+      },
     ]);
 
-    const totalQuantity = totalQuantityResult.length > 0 ? totalQuantityResult[0].totalQuantity : 0;
+    const totalQuantity =
+      totalQuantityResult.length > 0 ? totalQuantityResult[0].totalQuantity : 0;
 
     return {
       success: true,
@@ -121,7 +122,7 @@ export const getDashboardData = async () => {
         preBookingChange: preBookingChange,
         confirmedBookings: currentMonthConfirmedBookings,
         confirmedBookingChange: confirmedBookingChange,
-        totalQuantity: totalQuantity
+        totalQuantity: totalQuantity,
       },
       statusCode: 200,
     };
@@ -196,7 +197,6 @@ export const getChartData = async () => {
       data: formattedChartData,
       statusCode: 200,
     };
-
   } catch (error) {
     console.error("getChartData error => ", error);
     return {
@@ -235,6 +235,90 @@ export const getRecentBookings = async () => {
     };
   } catch (error) {
     console.error("getRecentBookings error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const getNotifications = async () => {
+  try {
+    const notifications = await Notification.find({})
+      .sort({ createdAt: -1 })
+      .select("message type");
+
+    const formattedNotifications = notifications.map((notification) => ({
+      id: notification._id,
+      message: notification.message,
+      type: notification.type || "default",
+    }));
+
+    return {
+      success: true,
+      message: "Notifications fetched successfully",
+      data: formattedNotifications,
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("getNotifications error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const deleteSingleNotification = async (id) => {
+  try {
+    const notification = await Notification.findById(id);
+    if (!notification) {
+      return {
+        success: false,
+        message: "Notification not found",
+        statusCode: 404,
+      };
+    }
+
+    await notification.deleteOne();
+
+    return {
+      success: true,
+      message: "Notification deleted",
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("deleteSingleNotification error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const deleteAllNotifications = async () => {
+  try {
+    const notifications = await Notification.find({});
+    if (!notifications) {
+      return {
+        success: false,
+        message: "No notifications found",
+        statusCode: 404,
+      };
+    }
+
+    await Notification.deleteMany({});
+
+    return {
+      success: true,
+      message: "All notifications deleted",
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("deleteAllNotifications error => ", error);
     return {
       success: false,
       message: "Internal server error",

@@ -114,7 +114,10 @@ export const getAllSuppliersWithPagination = async (
       ];
     }
 
-    const suppliers = await Supplier.find(searchQuery).skip(skip).limit(limit);
+    const suppliers = await Supplier.find(searchQuery)
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 });
 
     const totalSuppliers = await Supplier.countDocuments(searchQuery);
 

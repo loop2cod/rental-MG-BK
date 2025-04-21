@@ -5,6 +5,7 @@ import {
   getOrderDetailsController,
   getOrdersComparisonController,
   getOrdersWithPaginationSearchController,
+  getProductOrdersHistoryController,
   handleDamagedOutsourcedProductsController,
   handleDamagedProductsController,
   handleOrderDispatchController,
@@ -49,6 +50,12 @@ router.post(
   "/handle-damaged-outsourced-products",
   isAuthenticated,
   handleDamagedOutsourcedProductsController
+);
+
+router.get(
+  "/get-product-orders-history/:product_id",
+  isAuthenticated,
+  getProductOrdersHistoryController
 );
 
 export default router;

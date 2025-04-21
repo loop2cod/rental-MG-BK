@@ -5,6 +5,7 @@ const UserSchema = new mongoose.Schema(
   {
     name: String,
     mobile: { type: String, unique: true, required: true },
+    secondary_mobile: { type: String, unique: true },
     user_role: {
       type: String,
       enum: ["admin", "customer"],
@@ -51,7 +52,7 @@ const UserSchema = new mongoose.Schema(
     password: { type: String, required: true },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    isDeleted: { type: Boolean, default: false }
+    isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

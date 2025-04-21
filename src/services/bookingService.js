@@ -4,6 +4,7 @@ import User from "../models/UserSchema.js";
 import mongoose from "mongoose";
 import Payment from "../models/PaymentSchema.js";
 import sendEmail from "../utils/sendMail.js";
+import createNotification from "../utils/createNotification.js";
 
 export const addBooking = async (fields, userId) => {
   const session = await mongoose.startSession();
@@ -42,6 +43,7 @@ export const addBooking = async (fields, userId) => {
       const newUser = new User({
         name: fields.user_name,
         mobile: fields.user_phone,
+        secondary_mobile: fields.user_secondary_mobile,
         user_role: "customer",
         proof_type: fields.user_proof_type,
         proof_id: fields.user_proof_id,
@@ -99,6 +101,7 @@ export const addBooking = async (fields, userId) => {
 
     await newBooking.save({ session });
     await session.commitTransaction();
+    createNotification("Booking created successfully", "success");
 
     // **SEND CONFIRMATION EMAIL**
     const emailSubject = "Booking Confirmation";
@@ -282,7 +285,8 @@ export const listBookings = async (
       searchQuery.$or.push(
         { "booking_items.name": { $regex: search, $options: "i" } },
         { "outsourced_items.name": { $regex: search, $options: "i" } },
-        { address: { $regex: search, $options: "i" } }
+        { address: { $regex: search, $options: "i" } },
+        { booking_id: { $regex: search, $options: "i" } }
       );
 
       // Search in numeric fields if search is a number
@@ -319,6 +323,7 @@ export const listBookings = async (
     const bookings = await Booking.find(searchQuery)
       .skip(skip)
       .limit(limit)
+      .sort({ createdAt: -1 })
       .populate({
         path: "user_id",
         select: "name mobile",
@@ -411,8 +416,105 @@ export const bookingView = async (id) => {
 
 export const bookingDetailsById = async (id) => {
   try {
-    const booking = await Booking.findById(id).populate("user_id");
-    if (!booking) {
+    const bookingDetails = await Booking.aggregate([
+      {
+        $match: {
+          _id: mongoose.Types.ObjectId.createFromHexString(id),
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user_id",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      {
+        $unwind: "$user",
+      },
+      {
+        $lookup: {
+          from: "inventories",
+          localField: "booking_items.product_id",
+          foreignField: "product_id",
+          as: "inventoryDetails",
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          from_date: 1,
+          to_date: 1,
+          from_time: 1,
+          to_time: 1,
+          no_of_days: 1,
+          booking_date: 1,
+          total_amount: 1,
+          amount_paid: 1,
+          discount: 1,
+          sub_total: 1,
+          total_quantity: 1,
+          status: 1,
+          isDeleted: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          user: {
+            _id: "$user._id",
+            name: "$user.name",
+            mobile: "$user.mobile",
+            proof_type: "$user.proof_type",
+            proof_id: "$user.proof_id",
+            address: "$user.address",
+          },
+          booking_items: {
+            $map: {
+              input: "$booking_items",
+              as: "item",
+              in: {
+                $mergeObjects: [
+                  "$$item",
+                  {
+                    $arrayElemAt: [
+                      {
+                        $filter: {
+                          input: "$inventoryDetails",
+                          as: "inv",
+                          cond: {
+                            $eq: ["$$inv.product_id", "$$item.product_id"],
+                          },
+                        },
+                      },
+                      0,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "payments",
+          localField: "_id",
+          foreignField: "booking_id",
+          as: "payment_history",
+        },
+      },
+      {
+        $addFields: {
+          payment_history: {
+            $sortArray: {
+              input: "$payment_history",
+              sortBy: { payment_date: -1 },
+            },
+          },
+        },
+      },
+    ]);
+
+    if (bookingDetails.length === 0) {
       return {
         success: false,
         message: "Booking not found",
@@ -420,31 +522,19 @@ export const bookingDetailsById = async (id) => {
       };
     }
 
-    // Map through booking items and attach inventory details
-    const bookingItemsWithInventory = await Promise.all(
-      booking.booking_items.map(async (item) => {
-        const inventory = await Inventory.findOne(
-          {
-            product_id: item.product_id,
-          },
-          { quantity: 1, reserved_quantity: 1, available_quantity: 1, _id: 0 }
-        );
-        // Return the booking item with its inventory details
-        return {
-          ...item.toObject(),
-          reserved_quantity: inventory.reserved_quantity,
-          available_quantity: inventory.available_quantity,
-        };
-      })
-    );
+    const booking = bookingDetails[0];
 
-    // Return the booking with updated booking items
+    // Return the booking with updated booking items and payment history
     return {
       success: true,
       message: "Booking details fetched successfully",
       data: {
-        ...booking.toObject(),
-        booking_items: bookingItemsWithInventory, // Replace original booking_items with the enhanced version
+        ...booking,
+        booking_items: booking.booking_items.map((item) => ({
+          ...item,
+          reserved_quantity: item.reserved_quantity,
+          available_quantity: item.available_quantity,
+        })),
       },
       statusCode: 200,
     };

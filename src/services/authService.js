@@ -69,7 +69,14 @@ export const loginUser = async (mobile, password, res) => {
   }
 };
 
-export const signupUser = async (mobile, password, name, user_role, res) => {
+export const signupUser = async (
+  mobile,
+  secondary_mobile,
+  password,
+  name,
+  user_role,
+  res
+) => {
   try {
     const user = await User.findOne({ mobile });
     if (user) {
@@ -80,7 +87,13 @@ export const signupUser = async (mobile, password, name, user_role, res) => {
       };
     }
 
-    const newUser = new User({ mobile, password, name, user_role });
+    const newUser = new User({
+      mobile,
+      secondary_mobile,
+      password,
+      name,
+      user_role,
+    });
     await newUser.save();
 
     // Generate access token (short-lived)
@@ -281,4 +294,3 @@ export const checkAuthenticated = async (req, res) => {
     }
   }
 };
-
