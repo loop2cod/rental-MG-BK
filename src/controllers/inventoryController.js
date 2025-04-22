@@ -32,7 +32,13 @@ export const addOutsourcedProductController = async (req, res) => {
   try {
     const response = await addOutsourcedProduct(req?.body, req.userId);
 
-    sendResponse(res, 200, response.success, response.message, response.data);
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
   } catch (error) {
     sendResponse(res, 500, false, "Internal server error");
   }
@@ -41,11 +47,17 @@ export const addOutsourcedProductController = async (req, res) => {
 export const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { fields } = req;
+    const { body } = req;
 
-    const response = await updateProductOfInventory(id, fields);
+    const response = await updateProductOfInventory(id, body);
 
-    sendResponse(res, 200, response.success, response.message, response.data);
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
   } catch (error) {
     sendResponse(res, 500, false, "Internal server error");
   }
@@ -57,7 +69,14 @@ export const deleteProduct = async (req, res) => {
 
     const response = await deleteProductOfInventory(id);
 
-    sendResponse(res, 200, response.success, response.message, response.data);
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+
   } catch (error) {
     sendResponse(res, 500, false, "Internal server error");
   }
@@ -77,7 +96,6 @@ export const getAllProductsController = async (req, res) => {
     );
   } catch (error) {
     console.log("getAllProductsController error => ", error);
-
     sendResponse(res, 500, false, "Internal server error");
   }
 };
@@ -95,7 +113,6 @@ export const getAllProductsWithoutPaginationController = async (req, res) => {
     );
   } catch (error) {
     console.log("getAllProductsWithoutPaginationController error => ", error);
-
     sendResponse(res, 500, false, "Internal server error");
   }
 };
@@ -114,6 +131,7 @@ export const getAllOutsourcedProductsWithoutPaginationController = async (
       response.message,
       response.data
     );
+
   } catch (error) {
     console.log(
       "getAllOutsourcedProductsWithoutPaginationController error => ",

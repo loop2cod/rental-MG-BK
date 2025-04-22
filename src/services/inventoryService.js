@@ -104,6 +104,8 @@ export const addOutsourcedProduct = async (fields, userId) => {
 };
 
 export const updateProductOfInventory = async (productId, fields) => {
+  console.log("Fields to update: ", fields);
+  
   try {
     // Validate if the product exists
     const existingProduct = await Product.findById(productId);
