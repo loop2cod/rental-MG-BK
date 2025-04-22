@@ -245,9 +245,7 @@ export const getRecentBookings = async () => {
 
 export const getNotifications = async () => {
   try {
-    const notifications = await Notification.find({})
-      .sort({ createdAt: -1 })
-      .select("message type");
+    const notifications = await Notification.find({}).sort({ createdAt: -1 });
 
     const formattedNotifications = notifications.map((notification) => ({
       id: notification._id,

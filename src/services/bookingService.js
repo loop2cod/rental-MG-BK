@@ -449,6 +449,7 @@ export const bookingDetailsById = async (id) => {
           from_time: 1,
           to_time: 1,
           no_of_days: 1,
+          address: 1,
           booking_date: 1,
           total_amount: 1,
           amount_paid: 1,
@@ -465,7 +466,6 @@ export const bookingDetailsById = async (id) => {
             mobile: "$user.mobile",
             proof_type: "$user.proof_type",
             proof_id: "$user.proof_id",
-            address: "$user.address",
           },
           booking_items: {
             $map: {
@@ -492,6 +492,31 @@ export const bookingDetailsById = async (id) => {
               },
             },
           },
+          outsourced_items: {
+            $map: {
+              input: "$outsourced_items",
+              as: "item",
+              in: {
+                $mergeObjects: [
+                  "$$item",
+                  {
+                    $arrayElemAt: [
+                      {
+                        $filter: {
+                          input: "$inventoryDetails",
+                          as: "inv",
+                          cond: {
+                            $eq: ["$$inv.product_id", "$$item.product_id"],
+                          },
+                        },
+                      },
+                      0,
+                    ],
+                  },
+                ],
+              },
+            },
+          }
         },
       },
       {
