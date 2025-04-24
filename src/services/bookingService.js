@@ -25,7 +25,10 @@ export const addBooking = async (fields, userId) => {
 
     // Find or Create User within transaction
     const isUserExists = await User.findOne(
-      { mobile: fields.user_phone },
+      {
+        mobile: fields.user_phone,
+        secondary_mobile: fields.user_secondary_mobile,
+      },
       null,
       { session }
     );
