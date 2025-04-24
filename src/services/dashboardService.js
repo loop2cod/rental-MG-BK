@@ -102,9 +102,12 @@ export const getDashboardData = async () => {
     // 5. Total Quantity of All Products
     const totalQuantityResult = await Inventory.aggregate([
       {
+        $match: { isDeleted: false },
+      },
+      {
         $group: {
           _id: null,
-          totalQuantity: { $sum: "$available_quantity" },
+          totalQuantity: { $sum: "$quantity" },
         },
       },
     ]);
