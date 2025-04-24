@@ -100,6 +100,32 @@ export const addBooking = async (fields, userId) => {
     });
 
     await newBooking.save({ session });
+
+    let paymentState =
+      fields?.amount_paid < fields.total_amount ? "partial" : "complete";
+
+    const newPayment = new Payment({
+      booking_id: newBooking._id,
+      user_id,
+      amount: fields.amount_paid,
+      payment_method: fields.payment_method || "cash",
+      payment_state: paymentState,
+      status: "success",
+      stage: "booking",
+      createdBy: user_id,
+      updatedBy: user_id,
+    });
+    await newPayment.save({ session });
+
+    if (!newPayment) {
+      await session.abortTransaction();
+      return {
+        success: false,
+        message: "Payment creation failed",
+        statusCode: 500,
+      };
+    }
+
     await session.commitTransaction();
     createNotification("Booking created successfully", "success");
 
@@ -388,7 +414,7 @@ export const bookingView = async (id) => {
   try {
     const booking = await Booking.findById(id).populate(
       "user_id",
-      "name mobile proof_type proof_id"
+      "name mobile secondary_mobile proof_type proof_id"
     );
     if (!booking) {
       return {
@@ -430,9 +456,8 @@ export const bookingDetailsById = async (id) => {
           as: "user",
         },
       },
-      {
-        $unwind: "$user",
-      },
+      { $unwind: "$user" },
+
       {
         $lookup: {
           from: "inventories",
@@ -441,6 +466,51 @@ export const bookingDetailsById = async (id) => {
           as: "inventoryDetails",
         },
       },
+
+      { $unwind: "$outsourced_items" },
+
+      {
+        $lookup: {
+          from: "outsourcedproducts", // ✅ corrected name
+          localField: "outsourced_items.out_product_id",
+          foreignField: "_id",
+          as: "outsourcedDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$outsourcedDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "suppliers",
+          localField: "outsourcedDetails.supplier_id",
+          foreignField: "_id",
+          as: "supplierDetails",
+        },
+      },
+
+      {
+        $lookup: {
+          from: "payments",
+          localField: "_id",
+          foreignField: "booking_id",
+          as: "payment_history",
+        },
+      },
+      {
+        $addFields: {
+          payment_history: {
+            $sortArray: {
+              input: "$payment_history",
+              sortBy: { payment_date: -1 },
+            },
+          },
+        },
+      },
+
       {
         $project: {
           _id: 1,
@@ -460,28 +530,51 @@ export const bookingDetailsById = async (id) => {
           isDeleted: 1,
           createdAt: 1,
           updatedAt: 1,
+
           user: {
             _id: "$user._id",
             name: "$user.name",
             mobile: "$user.mobile",
+            secondary_mobile: "$user.secondary_mobile",
             proof_type: "$user.proof_type",
             proof_id: "$user.proof_id",
           },
+
           booking_items: {
             $map: {
               input: "$booking_items",
               as: "item",
               in: {
                 $mergeObjects: [
-                  "$$item",
+                  {
+                    product_id: "$$item.product_id",
+                    name: "$$item.name",
+                    price: "$$item.price",
+                    quantity: "$$item.quantity",
+                    total_price: "$$item.total_price",
+                    _id: "$$item._id",
+                    isDeleted: "$$item.isDeleted",
+                    createdAt: "$$item.createdAt",
+                    updatedAt: "$$item.updatedAt",
+                    __v: "$$item.__v",
+                  },
                   {
                     $arrayElemAt: [
                       {
-                        $filter: {
-                          input: "$inventoryDetails",
+                        $map: {
+                          input: {
+                            $filter: {
+                              input: "$inventoryDetails",
+                              as: "inv",
+                              cond: {
+                                $eq: ["$$inv.product_id", "$$item.product_id"],
+                              },
+                            },
+                          },
                           as: "inv",
-                          cond: {
-                            $eq: ["$$inv.product_id", "$$item.product_id"],
+                          in: {
+                            reserved_quantity: "$$inv.reserved_quantity",
+                            available_quantity: "$$inv.available_quantity",
                           },
                         },
                       },
@@ -492,49 +585,32 @@ export const bookingDetailsById = async (id) => {
               },
             },
           },
-          outsourced_items: {
-            $map: {
-              input: "$outsourced_items",
-              as: "item",
-              in: {
-                $mergeObjects: [
-                  "$$item",
-                  {
-                    $arrayElemAt: [
-                      {
-                        $filter: {
-                          input: "$inventoryDetails",
-                          as: "inv",
-                          cond: {
-                            $eq: ["$$inv.product_id", "$$item.product_id"],
-                          },
-                        },
-                      },
-                      0,
-                    ],
-                  },
-                ],
+
+          outsourced_item: {
+            $mergeObjects: [
+              {
+                out_product_id: "$outsourced_items.out_product_id",
+                name: "$outsourced_items.name",
+                price: "$outsourced_items.price",
+                quantity: "$outsourced_items.quantity",
+                total_price: "$outsourced_items.total_price",
+                _id: "$outsourced_items._id",
+                isDeleted: "$outsourced_items.isDeleted",
+                createdAt: "$outsourced_items.createdAt",
+                updatedAt: "$outsourced_items.updatedAt",
+                __v: "$outsourced_items.__v",
               },
-            },
-          }
-        },
-      },
-      {
-        $lookup: {
-          from: "payments",
-          localField: "_id",
-          foreignField: "booking_id",
-          as: "payment_history",
-        },
-      },
-      {
-        $addFields: {
-          payment_history: {
-            $sortArray: {
-              input: "$payment_history",
-              sortBy: { payment_date: -1 },
-            },
+              {
+                supplier_id: "$outsourcedDetails.supplier_id",
+                supplier_name: { $arrayElemAt: ["$supplierDetails.name", 0] },
+                supplier_mobile: {
+                  $arrayElemAt: ["$supplierDetails.mobile", 0],
+                },
+              },
+            ],
           },
+
+          payment_history: 1,
         },
       },
     ]);

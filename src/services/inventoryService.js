@@ -5,7 +5,6 @@ import Category from "../models/CategorySchema.js";
 import createNotification from "../utils/createNotification.js";
 
 export const addProductToInventory = async (fields, userId) => {
-
   try {
     const existingProduct = await Product.findOne({ name: fields.name });
     if (existingProduct) {
@@ -105,7 +104,7 @@ export const addOutsourcedProduct = async (fields, userId) => {
 
 export const updateProductOfInventory = async (productId, fields) => {
   console.log("Fields to update: ", fields);
-  
+
   try {
     // Validate if the product exists
     const existingProduct = await Product.findById(productId);
@@ -220,10 +219,9 @@ export const getAllProducts = async (
     const skip = (page - 1) * limit;
     const baseMatchCondition = { isDeleted: false };
 
-    // Fetch products with inventory details and category name
     const [productsWithInventory, totalCountResult] = await Promise.all([
       Product.aggregate([
-        { $match: baseMatchCondition }, // Filter out deleted products initially
+        { $match: baseMatchCondition },
         {
           $lookup: {
             from: "categories",
@@ -270,7 +268,7 @@ export const getAllProducts = async (
                               $regex: searchKeyword,
                               $options: "i",
                             },
-                          }, // Search categoryName
+                          },
                           {
                             $expr: {
                               $gt: [
@@ -306,8 +304,72 @@ export const getAllProducts = async (
                           },
                         ]
                       : [
-                          { unit_cost: Number(searchKeyword) },
-                          { inventoryQuantity: Number(searchKeyword) },
+                          {
+                            $expr: {
+                              $regexMatch: {
+                                input: { $toString: "$unit_cost" },
+                                regex: searchKeyword,
+                                options: "i",
+                              },
+                            },
+                          },
+                          {
+                            $expr: {
+                              $regexMatch: {
+                                input: { $toString: "$inventoryQuantity" },
+                                regex: searchKeyword,
+                                options: "i",
+                              },
+                            },
+                          },
+                          {
+                            $expr: {
+                              $regexMatch: {
+                                input: {
+                                  $toString: {
+                                    $arrayElemAt: [
+                                      "$inventoryDetails.quantity",
+                                      0,
+                                    ],
+                                  },
+                                },
+                                regex: searchKeyword,
+                                options: "i",
+                              },
+                            },
+                          },
+                          {
+                            $expr: {
+                              $regexMatch: {
+                                input: {
+                                  $toString: {
+                                    $arrayElemAt: [
+                                      "$inventoryDetails.reserved_quantity",
+                                      0,
+                                    ],
+                                  },
+                                },
+                                regex: searchKeyword,
+                                options: "i",
+                              },
+                            },
+                          },
+                          {
+                            $expr: {
+                              $regexMatch: {
+                                input: {
+                                  $toString: {
+                                    $arrayElemAt: [
+                                      "$inventoryDetails.available_quantity",
+                                      0,
+                                    ],
+                                  },
+                                },
+                                regex: searchKeyword,
+                                options: "i",
+                              },
+                            },
+                          },
                         ]),
                   ],
                 },
@@ -410,8 +472,72 @@ export const getAllProducts = async (
                           },
                         ]
                       : [
-                          { unit_cost: Number(searchKeyword) },
-                          { inventoryQuantity: Number(searchKeyword) },
+                          {
+                            $expr: {
+                              $regexMatch: {
+                                input: { $toString: "$unit_cost" },
+                                regex: searchKeyword,
+                                options: "i",
+                              },
+                            },
+                          },
+                          {
+                            $expr: {
+                              $regexMatch: {
+                                input: { $toString: "$inventoryQuantity" },
+                                regex: searchKeyword,
+                                options: "i",
+                              },
+                            },
+                          },
+                          {
+                            $expr: {
+                              $regexMatch: {
+                                input: {
+                                  $toString: {
+                                    $arrayElemAt: [
+                                      "$inventoryDetails.quantity",
+                                      0,
+                                    ],
+                                  },
+                                },
+                                regex: searchKeyword,
+                                options: "i",
+                              },
+                            },
+                          },
+                          {
+                            $expr: {
+                              $regexMatch: {
+                                input: {
+                                  $toString: {
+                                    $arrayElemAt: [
+                                      "$inventoryDetails.reserved_quantity",
+                                      0,
+                                    ],
+                                  },
+                                },
+                                regex: searchKeyword,
+                                options: "i",
+                              },
+                            },
+                          },
+                          {
+                            $expr: {
+                              $regexMatch: {
+                                input: {
+                                  $toString: {
+                                    $arrayElemAt: [
+                                      "$inventoryDetails.available_quantity",
+                                      0,
+                                    ],
+                                  },
+                                },
+                                regex: searchKeyword,
+                                options: "i",
+                              },
+                            },
+                          },
                         ]),
                   ],
                 },
