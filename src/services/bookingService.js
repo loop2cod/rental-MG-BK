@@ -470,20 +470,13 @@ export const bookingDetailsById = async (id) => {
         },
       },
 
-      { $unwind: "$outsourced_items" },
-
+      // Remove the early unwind of outsourced_items - we'll handle it differently
       {
         $lookup: {
-          from: "outsourcedproducts", // ✅ corrected name
+          from: "outsourcedproducts",
           localField: "outsourced_items.out_product_id",
           foreignField: "_id",
           as: "outsourcedDetails",
-        },
-      },
-      {
-        $unwind: {
-          path: "$outsourcedDetails",
-          preserveNullAndEmptyArrays: true,
         },
       },
       {
@@ -589,28 +582,62 @@ export const bookingDetailsById = async (id) => {
             },
           },
 
-          outsourced_item: {
-            $mergeObjects: [
-              {
-                out_product_id: "$outsourced_items.out_product_id",
-                name: "$outsourced_items.name",
-                price: "$outsourced_items.price",
-                quantity: "$outsourced_items.quantity",
-                total_price: "$outsourced_items.total_price",
-                _id: "$outsourced_items._id",
-                isDeleted: "$outsourced_items.isDeleted",
-                createdAt: "$outsourced_items.createdAt",
-                updatedAt: "$outsourced_items.updatedAt",
-                __v: "$outsourced_items.__v",
-              },
-              {
-                supplier_id: "$outsourcedDetails.supplier_id",
-                supplier_name: { $arrayElemAt: ["$supplierDetails.name", 0] },
-                supplier_mobile: {
-                  $arrayElemAt: ["$supplierDetails.mobile", 0],
-                },
-              },
-            ],
+          // Fixed outsourced_items handling
+          outsourced_items: {
+            $map: {
+              input: "$outsourced_items",
+              as: "outsourced",
+              in: {
+                $mergeObjects: [
+                  "$$outsourced",
+                  {
+                    $let: {
+                      vars: {
+                        matchedOutsourced: {
+                          $arrayElemAt: [
+                            {
+                              $filter: {
+                                input: "$outsourcedDetails",
+                                as: "detail",
+                                cond: {
+                                  $eq: ["$$detail._id", "$$outsourced.out_product_id"]
+                                }
+                              }
+                            },
+                            0
+                          ]
+                        }
+                      },
+                      in: {
+                        $let: {
+                          vars: {
+                            matchedSupplier: {
+                              $arrayElemAt: [
+                                {
+                                  $filter: {
+                                    input: "$supplierDetails",
+                                    as: "supplier",
+                                    cond: {
+                                      $eq: ["$$supplier._id", "$$matchedOutsourced.supplier_id"]
+                                    }
+                                  }
+                                },
+                                0
+                              ]
+                            }
+                          },
+                          in: {
+                            supplier_id: "$$matchedOutsourced.supplier_id",
+                            supplier_name: "$$matchedSupplier.name",
+                            supplier_mobile: "$$matchedSupplier.mobile"
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
           },
 
           payment_history: 1,
@@ -628,18 +655,10 @@ export const bookingDetailsById = async (id) => {
 
     const booking = bookingDetails[0];
 
-    // Return the booking with updated booking items and payment history
     return {
       success: true,
       message: "Booking details fetched successfully",
-      data: {
-        ...booking,
-        booking_items: booking.booking_items.map((item) => ({
-          ...item,
-          reserved_quantity: item.reserved_quantity,
-          available_quantity: item.available_quantity,
-        })),
-      },
+      data: booking,
       statusCode: 200,
     };
   } catch (error) {
