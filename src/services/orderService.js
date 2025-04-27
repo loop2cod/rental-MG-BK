@@ -432,14 +432,85 @@ export const updateOrder = async (orderId, orderUpdates, userId) => {
 
 export const getOrderDetails = async (id) => {
   try {
-    const order = await Order.findById(id).populate("user_id");
-    if (!order) {
+    const orderDetails = await Order.aggregate([
+      {
+        $match: {
+          _id: mongoose.Types.ObjectId.createFromHexString(id),
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user_id",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      {
+        $unwind: "$user",
+      },
+      {
+        $lookup: {
+          from: "payments",
+          localField: "booking_id",
+          foreignField: "booking_id",
+          as: "payments",
+        },
+      },
+      {
+        $addFields: {
+          total_amount_paid: {
+            $sum: "$payments.amount",
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          order_id: 1,
+          user_id: 1,
+          booking_id: 1,
+          order_items: 1,
+          outsourced_items: 1,
+          address: 1,
+          status: 1,
+          from_time: 1,
+          to_time: 1,
+          order_date: 1,
+          booking_date: 1,
+          from_date: 1,
+          to_date: 1,
+          no_of_days: 1,
+          total_amount: 1,
+          total_amount_paid: 1,
+          amount_paid: 1,
+          discount: 1,
+          user: {
+            name: 1,
+            mobile: 1,
+          },
+          payments: {
+            _id: 1,
+            amount: 1,
+            payment_method: 1,
+            payment_date: 1,
+          },
+        },
+      },
+    ]);
+
+    if (orderDetails.length === 0) {
       return {
         success: false,
         message: "Order not found",
         statusCode: 404,
       };
     }
+
+    let order = orderDetails[0];
+
+    // Update the amount_paid field with the total_amount_paid
+    order.amount_paid = order.total_amount_paid;
 
     // Map through order items and attach inventory details
     const orderItemsWithInventory = await Promise.all(
@@ -448,10 +519,9 @@ export const getOrderDetails = async (id) => {
           { product_id: item.product_id },
           { reserved_quantity: 1, available_quantity: 1, _id: 0 }
         );
-
         // Return the order item with its inventory details
         return {
-          ...item.toObject(),
+          ...item,
           ...inventory.toObject(),
         };
       })
@@ -461,7 +531,7 @@ export const getOrderDetails = async (id) => {
     return {
       success: true,
       data: {
-        ...order.toObject(),
+        ...order,
         order_items: orderItemsWithInventory, // Replace original order_items with the enhanced version
       },
       statusCode: 200,
@@ -564,15 +634,81 @@ export const getOrderListWithPaginationAndSearch = async (
       }
     }
 
-    orders = await Order.find(query)
-      .populate({
-        path: "user_id",
-        select: "name mobile",
-      })
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    // Fetch orders with payment details
+    orders = await Order.aggregate([
+      {
+        $match: query,
+      },
+      {
+        $lookup: {
+          from: "payments",
+          localField: "booking_id",
+          foreignField: "booking_id",
+          as: "payments",
+        },
+      },
+      {
+        $addFields: {
+          total_amount_paid: {
+            $sum: "$payments.amount",
+          },
+        },
+      },
+      {
+        $sort: { createdAt: -1 },
+      },
+      {
+        $skip: (page - 1) * limit,
+      },
+      {
+        $limit: limit,
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user_id",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      {
+        $unwind: "$user",
+      },
+      {
+        $project: {
+          _id: 1,
+          order_id: 1,
+          user_id: 1,
+          booking_id: 1,
+          order_items: 1,
+          outsourced_items: 1,
+          address: 1,
+          status: 1,
+          from_time: 1,
+          to_time: 1,
+          order_date: 1,
+          booking_date: 1,
+          from_date: 1,
+          to_date: 1,
+          no_of_days: 1,
+          total_amount: 1,
+          amount_paid: 1,
+          total_quantity: 1,
+          total_amount_paid: 1,
+          user: {
+            name: 1,
+            mobile: 1,
+          },
+        },
+      },
+    ]);
 
+    orders = orders.map((order) => {
+      order.amount_paid = order.total_amount_paid;
+      return order;
+    });
+
+    // Count total orders matching the search query
     totalOrders = await Order.countDocuments(query);
 
     return {
@@ -1369,7 +1505,8 @@ export const getProductOrdersHistory = async (productId) => {
     const orders = await Order.aggregate([
       {
         $match: {
-          "order_items.product_id": mongoose.Types.ObjectId.createFromHexString(productId),
+          "order_items.product_id":
+            mongoose.Types.ObjectId.createFromHexString(productId),
           isDeleted: false,
         },
       },
@@ -1378,7 +1515,8 @@ export const getProductOrdersHistory = async (productId) => {
       },
       {
         $match: {
-          "order_items.product_id": mongoose.Types.ObjectId.createFromHexString(productId),
+          "order_items.product_id":
+            mongoose.Types.ObjectId.createFromHexString(productId),
         },
       },
       {
