@@ -1520,9 +1520,26 @@ export const getProductOrdersHistory = async (productId) => {
         },
       },
       {
+        $lookup: {
+          from: "payments",
+          localField: "booking_id",
+          foreignField: "booking_id",
+          as: "payments",
+        },
+      },
+      {
+        $addFields: {
+          total_amount_paid: {
+            $sum: "$payments.amount",
+          },
+        },
+      },
+      {
         $project: {
           order_date: 1,
+          dispatch_items: 1,
           total_amount: 1,
+          amount_paid: 1,
           status: 1,
           order_items: 1,
           user_id: 1,
@@ -1533,10 +1550,14 @@ export const getProductOrdersHistory = async (productId) => {
           to_time: 1,
           discount: 1,
           sub_total: 1,
+          createdAt: 1,
+          total_amount_paid: 1,
         },
       },
       {
-        $sort: { order_date: -1 },
+        $sort: {
+          createdAt: -1,
+        },
       },
     ]);
 
