@@ -1487,6 +1487,7 @@ export const getProductOrdersHistory = async (productId) => {
           description: 1,
           unit_cost: 1,
           features: 1,
+          images: 1,
           reserved_quantity: "$inventoryDetails.reserved_quantity",
           available_quantity: "$inventoryDetails.available_quantity",
         },

@@ -254,6 +254,7 @@ export const getNotifications = async () => {
       id: notification._id,
       message: notification.message,
       type: notification.type || "default",
+      createdAt: notification.createdAt
     }));
 
     return {
