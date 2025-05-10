@@ -1537,6 +1537,7 @@ export const getProductOrdersHistory = async (productId) => {
       },
       {
         $project: {
+          order_id: 1,
           order_date: 1,
           dispatch_items: 1,
           total_amount: 1,
@@ -1562,17 +1563,76 @@ export const getProductOrdersHistory = async (productId) => {
       },
     ]);
 
+    // Fetch booking history for the product, excluding those already converted to orders
+    const bookings = await Booking.aggregate([
+      {
+        $match: {
+          "booking_items.product_id":
+            mongoose.Types.ObjectId.createFromHexString(productId),
+          isDeleted: false,
+        },
+      },
+      {
+        $unwind: "$booking_items",
+      },
+      {
+        $match: {
+          "booking_items.product_id":
+            mongoose.Types.ObjectId.createFromHexString(productId),
+        },
+      },
+      {
+        $lookup: {
+          from: "orders",
+          localField: "_id",
+          foreignField: "booking_id",
+          as: "order",
+        },
+      },
+      {
+        $match: {
+          "order.0": { $exists: false }
+        },
+      },
+      {
+        $project: {
+          booking_id: 1,
+          booking_date: 1,
+          from_date: 1,
+          to_date: 1,
+          from_time: 1,
+          to_time: 1,
+          no_of_days: 1,
+          status: 1,
+          booking_items: 1,
+          user_id: 1,
+          address: 1,
+          total_amount: 1,
+          amount_paid: 1,
+          discount: 1,
+          sub_total: 1,
+          createdAt: 1,
+        },
+      },
+      {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+    ]);
+
     return {
       success: true,
-      message: "Product and order history fetched successfully",
+      message: "Product, order, and non-converted booking history fetched successfully",
       data: {
         product: product[0],
         orders,
+        bookings,
       },
       statusCode: 200,
     };
   } catch (error) {
-    console.error("Error fetching product orders history:", error);
+    console.error("Error fetching product orders and non-converted bookings history:", error);
     return {
       success: false,
       message: error.message || "Internal server error",
