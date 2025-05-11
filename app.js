@@ -24,7 +24,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: [process.env.ALLOWED_ORIGIN1, process.env.ALLOWED_ORIGIN2],
+    origin: [process.env.ALLOWED_ORIGIN1, process.env.ALLOWED_ORIGIN2, process.env.ALLOWED_ORIGIN3],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
