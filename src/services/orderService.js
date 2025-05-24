@@ -472,6 +472,8 @@ export const getOrderDetails = async (id) => {
           booking_id: 1,
           order_items: 1,
           outsourced_items: 1,
+          dispatch_items: 1,
+          outsourced_dispatch_items: 1,
           address: 1,
           status: 1,
           from_time: 1,
@@ -898,7 +900,7 @@ export const handleOrderDispatch = async (orderId, dispatchData, userId) => {
       };
     }
 
-    // Validate input items
+    // Validate input items and check if already dispatched
     for (const item of dispatchData) {
       if (
         (!item.product_id && !item.out_product_id) ||
@@ -913,6 +915,39 @@ export const handleOrderDispatch = async (orderId, dispatchData, userId) => {
             "Each dispatch item must include product_id or out_product_id, quantity, dispatch_date, and dispatch_time",
           statusCode: 400,
         };
+      }
+
+      // Check if the product is already dispatched
+      if (item.product_id) {
+        const isAlreadyDispatched = order.dispatch_items.some(
+          (di) =>
+            di.product_id?.toString() === item.product_id.toString() &&
+            di.status === "dispatched"
+        );
+
+        if (isAlreadyDispatched) {
+          await session.abortTransaction();
+          return {
+            success: false,
+            message: `Product  is already dispatched`,
+            statusCode: 400,
+          };
+        }
+      } else if (item.out_product_id) {
+        const isAlreadyDispatched = order.outsourced_dispatch_items.some(
+          (odi) =>
+            odi.out_product_id?.toString() === item.out_product_id.toString() &&
+            odi.status === "dispatched"
+        );
+
+        if (isAlreadyDispatched) {
+          await session.abortTransaction();
+          return {
+            success: false,
+            message: `Outsourced product is already dispatched`,
+            statusCode: 400,
+          };
+        }
       }
 
       const dispatchEntry = {
@@ -1591,7 +1626,7 @@ export const getProductOrdersHistory = async (productId) => {
       },
       {
         $match: {
-          "order.0": { $exists: false }
+          "order.0": { $exists: false },
         },
       },
       {
@@ -1623,7 +1658,8 @@ export const getProductOrdersHistory = async (productId) => {
 
     return {
       success: true,
-      message: "Product, order, and non-converted booking history fetched successfully",
+      message:
+        "Product, order, and non-converted booking history fetched successfully",
       data: {
         product: product[0],
         orders,
@@ -1632,7 +1668,10 @@ export const getProductOrdersHistory = async (productId) => {
       statusCode: 200,
     };
   } catch (error) {
-    console.error("Error fetching product orders and non-converted bookings history:", error);
+    console.error(
+      "Error fetching product orders and non-converted bookings history:",
+      error
+    );
     return {
       success: false,
       message: error.message || "Internal server error",
