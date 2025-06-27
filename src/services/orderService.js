@@ -917,34 +917,90 @@ export const handleOrderDispatch = async (orderId, dispatchData, userId) => {
         };
       }
 
-      // Check if the product is already dispatched
+      // Check if the product can be dispatched (considering returns)
       if (item.product_id) {
-        const isAlreadyDispatched = order.dispatch_items.some(
-          (di) =>
-            di.product_id?.toString() === item.product_id.toString() &&
-            di.status === "dispatched"
+        // Find the order item to get the total ordered quantity
+        const orderItem = order.order_items.find(
+          (oi) => oi.product_id?.toString() === item.product_id.toString()
         );
 
-        if (isAlreadyDispatched) {
+        if (!orderItem) {
           await session.abortTransaction();
           return {
             success: false,
-            message: `Product  is already dispatched`,
+            message: `Product ${item.product_id} not found in order`,
+            statusCode: 400,
+          };
+        }
+
+        // Calculate net dispatched quantity (dispatched - returned)
+        const dispatchedQty = order.dispatch_items
+          .filter(
+            (di) =>
+              di.product_id?.toString() === item.product_id.toString() &&
+              di.status === "dispatched"
+          )
+          .reduce((sum, di) => sum + di.quantity, 0);
+
+        const returnedQty = order.dispatch_items
+          .filter(
+            (ri) =>
+              ri.product_id?.toString() === item.product_id.toString() &&
+              ri.status === "returned"
+          )
+          .reduce((sum, ri) => sum + ri.quantity, 0);
+
+        const netDispatchedQty = dispatchedQty - returnedQty;
+        const remainingQty = orderItem.quantity - netDispatchedQty;
+
+        if (item.quantity > remainingQty) {
+          await session.abortTransaction();
+          return {
+            success: false,
+            message: `Cannot dispatch ${item.quantity} units. Only ${remainingQty} units remaining for this product`,
             statusCode: 400,
           };
         }
       } else if (item.out_product_id) {
-        const isAlreadyDispatched = order.outsourced_dispatch_items.some(
-          (odi) =>
-            odi.out_product_id?.toString() === item.out_product_id.toString() &&
-            odi.status === "dispatched"
+        // Find the outsourced item to get the total ordered quantity
+        const outItem = order.outsourced_items.find(
+          (oi) => oi.out_product_id?.toString() === item.out_product_id.toString()
         );
 
-        if (isAlreadyDispatched) {
+        if (!outItem) {
           await session.abortTransaction();
           return {
             success: false,
-            message: `Outsourced product is already dispatched`,
+            message: `Outsourced product ${item.out_product_id} not found in order`,
+            statusCode: 400,
+          };
+        }
+
+        // Calculate net dispatched quantity (dispatched - returned)
+        const dispatchedQty = order.outsourced_dispatch_items
+          .filter(
+            (odi) =>
+              odi.out_product_id?.toString() === item.out_product_id.toString() &&
+              odi.status === "dispatched"
+          )
+          .reduce((sum, odi) => sum + odi.quantity, 0);
+
+        const returnedQty = order.outsourced_dispatch_items
+          .filter(
+            (ori) =>
+              ori.out_product_id?.toString() === item.out_product_id.toString() &&
+              ori.status === "returned"
+          )
+          .reduce((sum, ori) => sum + ori.quantity, 0);
+
+        const netDispatchedQty = dispatchedQty - returnedQty;
+        const remainingQty = outItem.quantity - netDispatchedQty;
+
+        if (item.quantity > remainingQty) {
+          await session.abortTransaction();
+          return {
+            success: false,
+            message: `Cannot dispatch ${item.quantity} units. Only ${remainingQty} units remaining for this outsourced product`,
             statusCode: 400,
           };
         }

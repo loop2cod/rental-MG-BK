@@ -212,28 +212,150 @@ export const getChartData = async () => {
 
 export const getRecentBookings = async () => {
   try {
-    // Recent Bookings
-    const recentBookings = await Booking.find({})
-      .sort({ booking_date: -1 })
-      .limit(10)
+    // Get today's date range (12:00 AM to 11:59 PM)
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+
+    // Get today's orders
+    const todaysOrders = await Order.find({
+      from_date: { $gte: startOfDay, $lte: endOfDay },
+      isDeleted: false
+    })
+      .sort({ from_date: -1 })
       .populate({
         path: "user_id",
-        select: "name",
+        select: "name mobile",
       })
-      .select("user_id booking_date status total_amount");
+      .populate({
+        path: "booking_id",
+        select: "booking_date"
+      })
+      .select({
+        _id: 1,
+        order_id: 1,
+        user_id: 1,
+        booking_id: 1,
+        order_items: 1,
+        outsourced_items: 1,
+        address: 1,
+        status: 1,
+        from_time: 1,
+        to_time: 1,
+        order_date: 1,
+        from_date: 1,
+        to_date: 1,
+        no_of_days: 1,
+        total_amount: 1,
+        amount_paid: 1,
+        total_quantity: 1
+      });
 
-    const formattedRecentBookings = recentBookings.map((booking) => ({
-      id: booking._id,
-      user: booking.user_id ? booking.user_id.name : "Unknown User",
-      date: booking.booking_date.toISOString().split("T")[0],
-      status: booking.status,
-      amount: booking.total_amount,
+    // Get booking IDs that are already present in orders
+    const bookingIdsInOrders = todaysOrders
+      .filter(order => order.booking_id)
+      .map(order => order.booking_id);
+
+    // Get today's bookings excluding those that are already converted to orders
+    const todaysBookings = await Booking.find({
+      from_date: { $gte: startOfDay, $lte: endOfDay },
+      isDeleted: false,
+      _id: { $nin: bookingIdsInOrders } // Exclude bookings that are already in orders
+    })
+      .sort({ from_date: -1 })
+      .populate({
+        path: "user_id",
+        select: "name mobile",
+      })
+      .select({
+        _id: 1,
+        booking_id: 1,
+        user_id: 1,
+        booking_items: 1,
+        outsourced_items: 1,
+        address: 1,
+        status: 1,
+        from_time: 1,
+        to_time: 1,
+        booking_date: 1,
+        from_date: 1,
+        to_date: 1,
+        no_of_days: 1,
+        total_amount: 1,
+        amount_paid: 1,
+        total_quantity: 1
+      });
+
+    // Format today's orders
+    const formattedTodaysOrders = todaysOrders.map((order) => ({
+      _id: order._id,
+      order_id: order.order_id,
+      user_id: order.user_id?._id || null,
+      booking_id: order.booking_id?._id || null,
+      order_items: order.order_items,
+      outsourced_items: order.outsourced_items,
+      address: order.address,
+      status: order.status,
+      from_time: order.from_time,
+      to_time: order.to_time,
+      order_date: order.order_date,
+      booking_date: order.booking_id?.booking_date || null,
+      from_date: order.from_date,
+      to_date: order.to_date,
+      no_of_days: order.no_of_days,
+      total_amount: order.total_amount,
+      amount_paid: order.amount_paid,
+      total_quantity: order.total_quantity,
+      total_amount_paid: order.amount_paid, // Using amount_paid as total_amount_paid
+      user: {
+        name: order.user_id?.name || "Unknown User",
+        mobile: order.user_id?.mobile || "N/A"
+      },
+      type: "order" // Flag to identify as order
     }));
+
+    // Format today's bookings
+    const formattedTodaysBookings = todaysBookings.map((booking) => ({
+      _id: booking._id,
+      order_id: booking.booking_id, // Using booking_id as order_id for consistency
+      user_id: booking.user_id?._id || null,
+      booking_id: booking._id,
+      order_items: booking.booking_items, // Using booking_items as order_items
+      outsourced_items: booking.outsourced_items,
+      address: booking.address,
+      status: booking.status,
+      from_time: booking.from_time,
+      to_time: booking.to_time,
+      order_date: booking.booking_date, // Using booking_date as order_date
+      booking_date: booking.booking_date,
+      from_date: booking.from_date,
+      to_date: booking.to_date,
+      no_of_days: booking.no_of_days,
+      total_amount: booking.total_amount,
+      amount_paid: booking.amount_paid,
+      total_quantity: booking.total_quantity,
+      total_amount_paid: booking.amount_paid, // Using amount_paid as total_amount_paid
+      user: {
+        name: booking.user_id?.name || "Unknown User",
+        mobile: booking.user_id?.mobile || "N/A"
+      },
+      type: "booking" // Flag to identify as booking
+    }));
+
+    // Combine orders and bookings
+    const combinedData = [...formattedTodaysOrders, ...formattedTodaysBookings];
+
+    // Sort combined data by date (most recent first)
+    combinedData.sort((a, b) => {
+      const dateA = new Date(a.type === 'order' ? a.order_date : a.booking_date);
+      const dateB = new Date(b.type === 'order' ? b.order_date : b.booking_date);
+      return dateB - dateA;
+    });
 
     return {
       success: true,
-      message: "Recent bookings fetched successfully",
-      data: formattedRecentBookings,
+      message: "Today's orders and bookings fetched successfully",
+      data: combinedData,
       statusCode: 200,
     };
   } catch (error) {

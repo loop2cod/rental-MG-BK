@@ -39,11 +39,12 @@ const logger = createLogger({
   ],
 });
 
+// "jdjithin97@gmail.com",
 // Function to send email notifications for errors
 const sendErrorEmail = async (logLevel, errorMessage) => {
   const mailOptions = {
     from: "contact.jithindas@gmail.com",
-    to: ["jdjithin97@gmail.com", "nizamudheen318@gmail.com"], 
+    to: ["nizamudheen318@gmail.com"], 
     subject: `Rental Management System - ${logLevel.toUpperCase()} Alert`,
     html: `<p><strong>${logLevel.toUpperCase()} Logged:</strong></p><p>${errorMessage}</p>`,
   };

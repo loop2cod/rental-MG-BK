@@ -243,6 +243,9 @@ export const getAllProducts = async (
             inventoryQuantity: {
               $ifNull: [{ $arrayElemAt: ["$inventoryDetails.quantity", 0] }, 0],
             },
+            available_quantity: {
+              $ifNull: [{ $arrayElemAt: ["$inventoryDetails.available_quantity", 0] }, 0],
+            },
             categoryName: {
               $ifNull: [{ $arrayElemAt: ["$categoryDetails.name", 0] }, ""],
             },
@@ -410,6 +413,9 @@ export const getAllProducts = async (
           $addFields: {
             inventoryQuantity: {
               $ifNull: [{ $arrayElemAt: ["$inventoryDetails.quantity", 0] }, 0],
+            },
+            available_quantity: {
+              $ifNull: [{ $arrayElemAt: ["$inventoryDetails.available_quantity", 0] }, 0],
             },
             categoryName: {
               $ifNull: [{ $arrayElemAt: ["$categoryDetails.name", 0] }, ""],
