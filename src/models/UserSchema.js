@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 const UserSchema = new mongoose.Schema(
   {
     name: String,
-    mobile: { type: String, unique: true, required: true },
+    mobile: { type: String, required: true },
     secondary_mobile: { type: String},
     user_role: {
       type: String,

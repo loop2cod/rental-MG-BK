@@ -490,6 +490,9 @@ export const getOrderDetails = async (id) => {
           user: {
             name: 1,
             mobile: 1,
+            secondary_mobile: 1,
+            proof_type: 1,
+            proof_id: 1,
           },
           payments: {
             _id: 1,

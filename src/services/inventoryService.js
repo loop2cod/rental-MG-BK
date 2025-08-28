@@ -3,6 +3,7 @@ import Inventory from "../models/InventorySchema.js";
 import OutsourcedProduct from "../models/OutsourcedProductSchema.js";
 import Category from "../models/CategorySchema.js";
 import createNotification from "../utils/createNotification.js";
+import { generateProductCode } from "../utils/updateProductCodes.js";
 
 export const addProductToInventory = async (fields, userId) => {
   try {
@@ -15,8 +16,12 @@ export const addProductToInventory = async (fields, userId) => {
       };
     }
 
+    // Generate product code
+    const productCode = await generateProductCode();
+
     // Create the product in the Product collection
     const newProduct = new Product({
+      code: productCode,
       name: fields.name,
       description: fields.description,
       unit_cost: fields.unit_cost,

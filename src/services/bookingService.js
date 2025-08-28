@@ -27,7 +27,6 @@ export const addBooking = async (fields, userId) => {
     const isUserExists = await User.findOne(
       {
         mobile: fields.user_phone,
-        secondary_mobile: fields.user_secondary_mobile,
       },
       null,
       { session }
