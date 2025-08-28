@@ -265,6 +265,7 @@ export const getAllProducts = async (
                     ...(isNaN(searchKeyword)
                       ? [
                           { name: { $regex: searchKeyword, $options: "i" } },
+                          { code: { $regex: searchKeyword, $options: "i" } },
                           {
                             description: {
                               $regex: searchKeyword,
@@ -436,6 +437,7 @@ export const getAllProducts = async (
                     ...(isNaN(searchKeyword)
                       ? [
                           { name: { $regex: searchKeyword, $options: "i" } },
+                          { code: { $regex: searchKeyword, $options: "i" } },
                           {
                             description: {
                               $regex: searchKeyword,
