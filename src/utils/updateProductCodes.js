@@ -2,18 +2,45 @@ import Product from "../models/ProductSchema.js";
 import mongoose from "mongoose";
 
 const generateProductCode = async () => {
-  const lastProduct = await Product.findOne(
-    { code: { $exists: true, $ne: null } },
-    {},
-    { sort: { code: -1 } }
-  );
-  
-  if (!lastProduct || !lastProduct.code) {
+  try {
+    const lastProduct = await Product.findOne(
+      { code: { $exists: true, $ne: null } },
+      {},
+      { sort: { code: -1 } }
+    );
+    
+    if (!lastProduct || !lastProduct.code) {
+      return "1";
+    }
+    
+    // Convert to number and increment
+    const lastCodeNumber = parseInt(lastProduct.code, 10);
+    
+    if (isNaN(lastCodeNumber)) {
+      // If parsing fails, find the highest numeric value
+      const products = await Product.find({
+        code: { $exists: true, $ne: null, $regex: /^\d+$/ }
+      }).sort({ code: -1 }).limit(1);
+      
+      if (products.length > 0) {
+        return (parseInt(products[0].code, 10) + 1).toString();
+      }
+      return "1";
+    }
+    
+    return (lastCodeNumber + 1).toString();
+  } catch (error) {
+    console.error("generateProductCode error => ", error);
+    // Fallback: find max code numerically
+    const products = await Product.find({
+      code: { $exists: true, $ne: null, $regex: /^\d+$/ }
+    }).sort({ code: -1 }).limit(1);
+    
+    if (products.length > 0) {
+      return (parseInt(products[0].code, 10) + 1).toString();
+    }
     return "1";
   }
-  
-  const lastCodeNumber = parseInt(lastProduct.code);
-  return (lastCodeNumber + 1).toString();
 };
 
 export const updateExistingProductsWithCodes = async () => {
