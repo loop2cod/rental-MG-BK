@@ -1,45 +1,55 @@
 import Product from "../models/ProductSchema.js";
-import mongoose from "mongoose";
 
 const generateProductCode = async () => {
   try {
-    const lastProduct = await Product.findOne(
-      { code: { $exists: true, $ne: null } },
-      {},
-      { sort: { code: -1 } }
-    );
-    
-    if (!lastProduct || !lastProduct.code) {
+    const [lastProduct] = await Product.aggregate([
+      {
+        $match: {
+          code: { $exists: true, $ne: null, $ne: "", $regex: /^\d+$/ },
+        },
+      },
+      {
+        $addFields: {
+          numericCode: { $toDouble: "$code" },
+        },
+      },
+      { $sort: { numericCode: -1, createdAt: -1 } },
+      { $limit: 1 },
+    ]);
+
+    if (
+      !lastProduct ||
+      typeof lastProduct.numericCode !== "number" ||
+      Number.isNaN(lastProduct.numericCode)
+    ) {
       return "1";
     }
-    
-    // Convert to number and increment
-    const lastCodeNumber = parseInt(lastProduct.code, 10);
-    
-    if (isNaN(lastCodeNumber)) {
-      // If parsing fails, find the highest numeric value
-      const products = await Product.find({
-        code: { $exists: true, $ne: null, $regex: /^\d+$/ }
-      }).sort({ code: -1 }).limit(1);
-      
-      if (products.length > 0) {
-        return (parseInt(products[0].code, 10) + 1).toString();
-      }
-      return "1";
-    }
-    
-    return (lastCodeNumber + 1).toString();
+
+    return (Math.trunc(lastProduct.numericCode) + 1).toString();
   } catch (error) {
     console.error("generateProductCode error => ", error);
-    // Fallback: find max code numerically
+    // Fallback: compute the max code numerically in application code
     const products = await Product.find({
-      code: { $exists: true, $ne: null, $regex: /^\d+$/ }
-    }).sort({ code: -1 }).limit(1);
-    
-    if (products.length > 0) {
-      return (parseInt(products[0].code, 10) + 1).toString();
-    }
-    return "1";
+      code: { $exists: true, $ne: null, $ne: "" },
+    })
+      .select("code")
+      .lean();
+
+    const maxNumericCode = products.reduce((max, product) => {
+      if (typeof product.code !== "string") {
+        return max;
+      }
+
+      const trimmedCode = product.code.trim();
+      if (!/^\d+$/.test(trimmedCode)) {
+        return max;
+      }
+
+      const numericValue = parseInt(trimmedCode, 10);
+      return Number.isNaN(numericValue) ? max : Math.max(max, numericValue);
+    }, 0);
+
+    return (maxNumericCode + 1).toString();
   }
 };
 
