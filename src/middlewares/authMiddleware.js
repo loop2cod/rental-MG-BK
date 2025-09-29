@@ -69,3 +69,59 @@ export const isAuthenticated = (req, res, next) => {
     }
   }
 };
+
+export const requireAdminOrStaff = (req, res, next) => {
+  try {
+    // Check if user is authenticated first (req.user should be set by isAuthenticated middleware)
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    // Check if user has admin or staff role
+    if (req.user.role !== "admin" && req.user.role !== "staff") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Admin or staff role required.",
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.log("Authorization error => ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const requireAdmin = (req, res, next) => {
+  try {
+    // Check if user is authenticated first (req.user should be set by isAuthenticated middleware)
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    // Check if user has admin role
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Admin role required.",
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.log("Authorization error => ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};

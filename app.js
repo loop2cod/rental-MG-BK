@@ -14,6 +14,7 @@ import paymentRoutes from "./src/routes/paymentRoutes.js";
 import cookieParser from "cookie-parser";
 import dashboardRoutes from "./src/routes/dashboardRoutes.js";
 import fileHandleRoutes from "./src/routes/fileHandleRoute.js";
+import adminRoutes from "./src/routes/adminRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -45,6 +46,7 @@ app.use("/api/v1/order", orderRoutes);
 app.use("/api/v1/payment", paymentRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/file", fileHandleRoutes);
+app.use("/api/v1/admin", adminRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

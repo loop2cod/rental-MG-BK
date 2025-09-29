@@ -24,6 +24,15 @@ export const loginUser = async (mobile, password, res) => {
       };
     }
 
+    // Check if user has admin or staff role
+    if (user.user_role !== "admin" && user.user_role !== "staff") {
+      return {
+        success: false,
+        message: "Access denied. Only admin and staff users can login.",
+        statusCode: 403,
+      };
+    }
+
     // Generate access token (short-lived)
     const accessToken = jwt.sign(
       { userId: user._id, role: user.user_role },
@@ -284,6 +293,66 @@ export const checkAuthenticated = async (req, res) => {
         success: false,
         message: "Invalid refresh token",
         statusCode: 400,
+      };
+    } else {
+      return {
+        success: false,
+        message: "Internal server error",
+        statusCode: 500,
+      };
+    }
+  }
+};
+
+export const getUserData = async (req, res) => {
+  try {
+    const accessToken = req.cookies?.access_token;
+    if (!accessToken) {
+      return {
+        success: false,
+        message: "No access token provided",
+        statusCode: 401,
+      };
+    }
+
+    const decoded = jwt.verify(accessToken, process.env.JWT_ACCESS_SECRET);
+    const user = await User.findById(decoded.userId);
+    
+    if (!user) {
+      return {
+        success: false,
+        message: "User not found",
+        statusCode: 404,
+      };
+    }
+
+    return {
+      success: true,
+      message: "User data retrieved successfully",
+      statusCode: 200,
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          role: user.user_role,
+          mobile: user.mobile,
+        }
+      }
+    };
+  } catch (error) {
+    console.log("getUserData error => ", error);
+
+    if (error.name === "TokenExpiredError") {
+      return {
+        success: false,
+        message: "Access token expired",
+        statusCode: 401,
+      };
+    } else if (error.name === "JsonWebTokenError") {
+      return {
+        success: false,
+        message: "Invalid access token",
+        statusCode: 401,
       };
     } else {
       return {

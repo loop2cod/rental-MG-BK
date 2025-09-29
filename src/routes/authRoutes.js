@@ -5,6 +5,7 @@ import {
   logout,
   refresh,
   checkAuth,
+  getUser,
 } from "../controllers/authController.js";
 import { validateLogin, validateSignup } from "../validators/authValidator.js";
 import { isAuthenticated } from "../middlewares/authMiddleware.js";
@@ -16,5 +17,6 @@ router.post("/signup", validateSignup, signup);
 router.post("/logout", isAuthenticated, logout);
 router.post("/refresh", refresh);
 router.post("/check-auth", checkAuth);
+router.get("/get-user", isAuthenticated, getUser);
 
 export default router;

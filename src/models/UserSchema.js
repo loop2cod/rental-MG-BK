@@ -8,7 +8,7 @@ const UserSchema = new mongoose.Schema(
     secondary_mobile: { type: String},
     user_role: {
       type: String,
-      enum: ["admin", "customer"],
+      enum: ["admin", "staff", "customer"],
       required: true,
     },
     proof_type: {
