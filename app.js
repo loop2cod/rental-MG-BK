@@ -16,6 +16,7 @@ import dashboardRoutes from "./src/routes/dashboardRoutes.js";
 import fileHandleRoutes from "./src/routes/fileHandleRoute.js";
 import adminRoutes from "./src/routes/adminRoutes.js";
 import purchaseRoutes from "./src/routes/purchaseRoutes.js";
+import reportsRoutes from "./src/routes/reportsRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -49,6 +50,7 @@ app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/file", fileHandleRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/purchase", purchaseRoutes);
+app.use("/api/v1/reports", reportsRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

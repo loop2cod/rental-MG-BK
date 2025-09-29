@@ -809,3 +809,403 @@ export const getAllProductsWithAvailableQuantity = async () => {
     };
   }
 };
+
+// Inventory Reporting Functions
+export const getInventoryReports = async (filters = {}) => {
+  try {
+    // Build match query
+    let matchQuery = {};
+
+    if (filters.category && filters.category !== 'all') {
+      matchQuery['categoryDetails._id'] = filters.category;
+    }
+
+    if (filters.stockStatus) {
+      if (filters.stockStatus === 'outOfStock') {
+        matchQuery['inventory.available_quantity'] = 0;
+      } else if (filters.stockStatus === 'lowStock') {
+        matchQuery['inventory.available_quantity'] = { $gt: 0, $lt: 5 };
+      } else if (filters.stockStatus === 'inStock') {
+        matchQuery['inventory.available_quantity'] = { $gte: 5 };
+      }
+    }
+
+    const pipeline = [
+      {
+        $lookup: {
+          from: "inventories",
+          localField: "_id",
+          foreignField: "product_id",
+          as: "inventory"
+        }
+      },
+      {
+        $unwind: { path: "$inventory", preserveNullAndEmptyArrays: true }
+      },
+      {
+        $lookup: {
+          from: "categories",
+          localField: "category_id",
+          foreignField: "_id",
+          as: "categoryDetails"
+        }
+      },
+      {
+        $unwind: { path: "$categoryDetails", preserveNullAndEmptyArrays: true }
+      },
+      {
+        $addFields: {
+          stockValue: {
+            $multiply: [
+              "$unit_cost",
+              { $ifNull: ["$inventory.quantity", 0] }
+            ]
+          },
+          stockStatus: {
+            $cond: [
+              { $eq: [{ $ifNull: ["$inventory.available_quantity", 0] }, 0] },
+              "Out of Stock",
+              {
+                $cond: [
+                  { $lt: [{ $ifNull: ["$inventory.available_quantity", 0] }, 5] },
+                  "Low Stock",
+                  "In Stock"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      { $match: matchQuery },
+      {
+        $project: {
+          _id: 1,
+          code: 1,
+          name: 1,
+          description: 1,
+          unit_cost: 1,
+          category: {
+            _id: "$categoryDetails._id",
+            name: "$categoryDetails.name"
+          },
+          quantity: { $ifNull: ["$inventory.quantity", 0] },
+          available_quantity: { $ifNull: ["$inventory.available_quantity", 0] },
+          reserved_quantity: { $ifNull: ["$inventory.reserved_quantity", 0] },
+          stockValue: 1,
+          stockStatus: 1,
+          createdAt: 1,
+          updatedAt: 1
+        }
+      },
+      { $sort: { name: 1 } }
+    ];
+
+    const [products, summaryStats] = await Promise.all([
+      Product.aggregate(pipeline),
+      Product.aggregate([
+        ...pipeline.slice(0, -2), // Remove project and sort for summary
+        {
+          $group: {
+            _id: null,
+            totalProducts: { $sum: 1 },
+            totalStockValue: { $sum: "$stockValue" },
+            totalQuantity: { $sum: { $ifNull: ["$inventory.quantity", 0] } },
+            availableQuantity: { $sum: { $ifNull: ["$inventory.available_quantity", 0] } },
+            reservedQuantity: { $sum: { $ifNull: ["$inventory.reserved_quantity", 0] } },
+            outOfStockItems: {
+              $sum: {
+                $cond: [{ $eq: [{ $ifNull: ["$inventory.available_quantity", 0] }, 0] }, 1, 0]
+              }
+            },
+            lowStockItems: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $gt: [{ $ifNull: ["$inventory.available_quantity", 0] }, 0] },
+                      { $lt: [{ $ifNull: ["$inventory.available_quantity", 0] }, 5] }
+                    ]
+                  },
+                  1,
+                  0
+                ]
+              }
+            }
+          }
+        }
+      ])
+    ]);
+
+    // Category-wise breakdown
+    const categoryStats = await Product.aggregate([
+      ...pipeline.slice(0, -2),
+      {
+        $group: {
+          _id: "$categoryDetails.name",
+          categoryId: { $first: "$categoryDetails._id" },
+          productCount: { $sum: 1 },
+          totalValue: { $sum: "$stockValue" },
+          totalQuantity: { $sum: { $ifNull: ["$inventory.quantity", 0] } },
+          availableQuantity: { $sum: { $ifNull: ["$inventory.available_quantity", 0] } }
+        }
+      },
+      { $sort: { totalValue: -1 } }
+    ]);
+
+    // Stock status breakdown
+    const stockStatusStats = await Product.aggregate([
+      ...pipeline.slice(0, -2),
+      {
+        $group: {
+          _id: "$stockStatus",
+          count: { $sum: 1 },
+          totalValue: { $sum: "$stockValue" }
+        }
+      }
+    ]);
+
+    return {
+      success: true,
+      message: "Inventory reports generated successfully",
+      statusCode: 200,
+      data: {
+        products,
+        summary: summaryStats[0] || {
+          totalProducts: 0,
+          totalStockValue: 0,
+          totalQuantity: 0,
+          availableQuantity: 0,
+          reservedQuantity: 0,
+          outOfStockItems: 0,
+          lowStockItems: 0
+        },
+        categoryStats,
+        stockStatusStats,
+        totalRecords: products.length
+      }
+    };
+  } catch (error) {
+    console.log("getInventoryReports error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const getInventorySummary = async () => {
+  try {
+    const [summary, topCategories, recentlyAdded, lowStockAlerts] = await Promise.all([
+      // Overall summary
+      Product.aggregate([
+        {
+          $lookup: {
+            from: "inventories",
+            localField: "_id",
+            foreignField: "product_id",
+            as: "inventory"
+          }
+        },
+        {
+          $unwind: { path: "$inventory", preserveNullAndEmptyArrays: true }
+        },
+        {
+          $addFields: {
+            stockValue: {
+              $multiply: [
+                "$unit_cost",
+                { $ifNull: ["$inventory.quantity", 0] }
+              ]
+            }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalProducts: { $sum: 1 },
+            totalStockValue: { $sum: "$stockValue" },
+            avgProductValue: { $avg: "$stockValue" },
+            totalQuantity: { $sum: { $ifNull: ["$inventory.quantity", 0] } },
+            availableQuantity: { $sum: { $ifNull: ["$inventory.available_quantity", 0] } },
+            reservedQuantity: { $sum: { $ifNull: ["$inventory.reserved_quantity", 0] } },
+            outOfStockCount: {
+              $sum: {
+                $cond: [{ $eq: [{ $ifNull: ["$inventory.available_quantity", 0] }, 0] }, 1, 0]
+              }
+            },
+            lowStockCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $gt: [{ $ifNull: ["$inventory.available_quantity", 0] }, 0] },
+                      { $lt: [{ $ifNull: ["$inventory.available_quantity", 0] }, 5] }
+                    ]
+                  },
+                  1,
+                  0
+                ]
+              }
+            }
+          }
+        }
+      ]),
+
+      // Top categories by value
+      Product.aggregate([
+        {
+          $lookup: {
+            from: "inventories",
+            localField: "_id",
+            foreignField: "product_id",
+            as: "inventory"
+          }
+        },
+        {
+          $unwind: { path: "$inventory", preserveNullAndEmptyArrays: true }
+        },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "category_id",
+            foreignField: "_id",
+            as: "category"
+          }
+        },
+        {
+          $unwind: { path: "$category", preserveNullAndEmptyArrays: true }
+        },
+        {
+          $addFields: {
+            stockValue: {
+              $multiply: [
+                "$unit_cost",
+                { $ifNull: ["$inventory.quantity", 0] }
+              ]
+            }
+          }
+        },
+        {
+          $group: {
+            _id: "$category.name",
+            categoryId: { $first: "$category._id" },
+            totalValue: { $sum: "$stockValue" },
+            productCount: { $sum: 1 }
+          }
+        },
+        { $sort: { totalValue: -1 } },
+        { $limit: 5 }
+      ]),
+
+      // Recently added products
+      Product.aggregate([
+        {
+          $lookup: {
+            from: "inventories",
+            localField: "_id",
+            foreignField: "product_id",
+            as: "inventory"
+          }
+        },
+        {
+          $unwind: { path: "$inventory", preserveNullAndEmptyArrays: true }
+        },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "category_id",
+            foreignField: "_id",
+            as: "category"
+          }
+        },
+        {
+          $unwind: { path: "$category", preserveNullAndEmptyArrays: true }
+        },
+        {
+          $project: {
+            name: 1,
+            category: "$category.name",
+            unit_cost: 1,
+            quantity: { $ifNull: ["$inventory.quantity", 0] },
+            createdAt: 1
+          }
+        },
+        { $sort: { createdAt: -1 } },
+        { $limit: 5 }
+      ]),
+
+      // Low stock alerts
+      Product.aggregate([
+        {
+          $lookup: {
+            from: "inventories",
+            localField: "_id",
+            foreignField: "product_id",
+            as: "inventory"
+          }
+        },
+        {
+          $unwind: { path: "$inventory", preserveNullAndEmptyArrays: true }
+        },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "category_id",
+            foreignField: "_id",
+            as: "category"
+          }
+        },
+        {
+          $unwind: { path: "$category", preserveNullAndEmptyArrays: true }
+        },
+        {
+          $match: {
+            $and: [
+              { "inventory.available_quantity": { $gt: 0 } },
+              { "inventory.available_quantity": { $lt: 5 } }
+            ]
+          }
+        },
+        {
+          $project: {
+            name: 1,
+            category: "$category.name",
+            available_quantity: "$inventory.available_quantity",
+            unit_cost: 1
+          }
+        },
+        { $sort: { available_quantity: 1 } },
+        { $limit: 10 }
+      ])
+    ]);
+
+    return {
+      success: true,
+      message: "Inventory summary retrieved successfully",
+      statusCode: 200,
+      data: {
+        summary: summary[0] || {
+          totalProducts: 0,
+          totalStockValue: 0,
+          avgProductValue: 0,
+          totalQuantity: 0,
+          availableQuantity: 0,
+          reservedQuantity: 0,
+          outOfStockCount: 0,
+          lowStockCount: 0
+        },
+        topCategories,
+        recentlyAdded,
+        lowStockAlerts
+      }
+    };
+  } catch (error) {
+    console.log("getInventorySummary error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};

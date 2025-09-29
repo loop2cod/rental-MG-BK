@@ -33,25 +33,49 @@ export const createPurchase = async (purchaseData, userId) => {
   }
 };
 
-export const getAllPurchases = async (page = 1, limit = 10, search = "") => {
+export const getAllPurchases = async (page = 1, limit = 10, search = "", filters = {}) => {
   try {
     const skip = (page - 1) * limit;
     
-    const searchQuery = {
-      isDeleted: { $ne: true },
-      ...(search && {
-        $or: [
-          { supplier_name: { $regex: search, $options: "i" } },
-          { invoice_number: { $regex: search, $options: "i" } },
-          { "items.product_name": { $regex: search, $options: "i" } }
-        ]
-      })
+    // Build search query
+    let searchQuery = {
+      isDeleted: { $ne: true }
     };
+
+    // Add search functionality
+    if (search) {
+      searchQuery.$or = [
+        { supplier_name: { $regex: search, $options: "i" } },
+        { invoice_number: { $regex: search, $options: "i" } },
+        { "items.product_name": { $regex: search, $options: "i" } }
+      ];
+    }
+
+    // Add filters
+    if (filters.supplier && filters.supplier !== 'all') {
+      searchQuery.supplier_name = { $regex: filters.supplier, $options: "i" };
+    }
+
+    if (filters.status && filters.status !== 'all') {
+      searchQuery.status = filters.status;
+    }
+
+    if (filters.dateFrom || filters.dateTo) {
+      searchQuery.purchase_date = {};
+      if (filters.dateFrom) {
+        searchQuery.purchase_date.$gte = new Date(filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        const endDate = new Date(filters.dateTo);
+        endDate.setHours(23, 59, 59, 999); // End of day
+        searchQuery.purchase_date.$lte = endDate;
+      }
+    }
 
     const [purchases, totalCount] = await Promise.all([
       Purchase.find(searchQuery)
         .populate("created_by", "name")
-        .sort({ createdAt: -1 })
+        .sort({ purchase_date: -1, createdAt: -1 })
         .skip(skip)
         .limit(limit),
       Purchase.countDocuments(searchQuery)
@@ -246,6 +270,223 @@ export const createBulkPurchases = async (purchasesData, userId) => {
 
   } catch (error) {
     console.log("createBulkPurchases error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+// Purchase Reporting Functions
+export const getPurchaseReports = async (filters = {}) => {
+  try {
+    // Build search query
+    let searchQuery = {
+      isDeleted: { $ne: true }
+    };
+
+    // Add filters
+    if (filters.supplier && filters.supplier !== 'all') {
+      searchQuery.supplier_name = { $regex: filters.supplier, $options: "i" };
+    }
+
+    if (filters.status && filters.status !== 'all') {
+      searchQuery.status = filters.status;
+    }
+
+    if (filters.dateFrom || filters.dateTo) {
+      searchQuery.purchase_date = {};
+      if (filters.dateFrom) {
+        searchQuery.purchase_date.$gte = new Date(filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        const endDate = new Date(filters.dateTo);
+        endDate.setHours(23, 59, 59, 999);
+        searchQuery.purchase_date.$lte = endDate;
+      }
+    }
+
+    const [purchases, totalCount, summaryStats] = await Promise.all([
+      Purchase.find(searchQuery)
+        .populate("created_by", "name")
+        .sort({ purchase_date: -1 }),
+      Purchase.countDocuments(searchQuery),
+      Purchase.aggregate([
+        { $match: searchQuery },
+        {
+          $group: {
+            _id: null,
+            totalAmount: { $sum: "$total_amount" },
+            totalPurchases: { $sum: 1 },
+            avgAmount: { $avg: "$total_amount" },
+            pendingCount: {
+              $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] }
+            },
+            receivedCount: {
+              $sum: { $cond: [{ $eq: ["$status", "received"] }, 1, 0] }
+            },
+            cancelledCount: {
+              $sum: { $cond: [{ $eq: ["$status", "cancelled"] }, 1, 0] }
+            }
+          }
+        }
+      ])
+    ]);
+
+    // Supplier-wise summary
+    const supplierStats = await Purchase.aggregate([
+      { $match: searchQuery },
+      {
+        $group: {
+          _id: "$supplier_name",
+          totalAmount: { $sum: "$total_amount" },
+          purchaseCount: { $sum: 1 },
+          avgAmount: { $avg: "$total_amount" },
+          lastPurchase: { $max: "$purchase_date" }
+        }
+      },
+      { $sort: { totalAmount: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // Monthly trends
+    const monthlyTrends = await Purchase.aggregate([
+      { $match: searchQuery },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$purchase_date" },
+            month: { $month: "$purchase_date" }
+          },
+          totalAmount: { $sum: "$total_amount" },
+          purchaseCount: { $sum: 1 }
+        }
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+      { $limit: 12 }
+    ]);
+
+    return {
+      success: true,
+      message: "Purchase reports generated successfully",
+      statusCode: 200,
+      data: {
+        purchases,
+        summary: summaryStats[0] || {
+          totalAmount: 0,
+          totalPurchases: 0,
+          avgAmount: 0,
+          pendingCount: 0,
+          receivedCount: 0,
+          cancelledCount: 0
+        },
+        supplierStats,
+        monthlyTrends,
+        totalRecords: totalCount
+      }
+    };
+  } catch (error) {
+    console.log("getPurchaseReports error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  }
+};
+
+export const getPurchaseSummary = async () => {
+  try {
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfYear = new Date(today.getFullYear(), 0, 1);
+    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+
+    const [currentMonth, currentYear, previousMonth, allTime] = await Promise.all([
+      Purchase.aggregate([
+        {
+          $match: {
+            isDeleted: { $ne: true },
+            purchase_date: { $gte: startOfMonth }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalAmount: { $sum: "$total_amount" },
+            totalCount: { $sum: 1 }
+          }
+        }
+      ]),
+      Purchase.aggregate([
+        {
+          $match: {
+            isDeleted: { $ne: true },
+            purchase_date: { $gte: startOfYear }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalAmount: { $sum: "$total_amount" },
+            totalCount: { $sum: 1 }
+          }
+        }
+      ]),
+      Purchase.aggregate([
+        {
+          $match: {
+            isDeleted: { $ne: true },
+            purchase_date: { $gte: lastMonth, $lte: endOfLastMonth }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalAmount: { $sum: "$total_amount" },
+            totalCount: { $sum: 1 }
+          }
+        }
+      ]),
+      Purchase.aggregate([
+        {
+          $match: {
+            isDeleted: { $ne: true }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalAmount: { $sum: "$total_amount" },
+            totalCount: { $sum: 1 }
+          }
+        }
+      ])
+    ]);
+
+    // Calculate growth
+    const currentMonthAmount = currentMonth[0]?.totalAmount || 0;
+    const previousMonthAmount = previousMonth[0]?.totalAmount || 0;
+    const monthlyGrowth = previousMonthAmount > 0 
+      ? ((currentMonthAmount - previousMonthAmount) / previousMonthAmount) * 100 
+      : 0;
+
+    return {
+      success: true,
+      message: "Purchase summary retrieved successfully",
+      statusCode: 200,
+      data: {
+        currentMonth: currentMonth[0] || { totalAmount: 0, totalCount: 0 },
+        currentYear: currentYear[0] || { totalAmount: 0, totalCount: 0 },
+        previousMonth: previousMonth[0] || { totalAmount: 0, totalCount: 0 },
+        allTime: allTime[0] || { totalAmount: 0, totalCount: 0 },
+        monthlyGrowth: monthlyGrowth.toFixed(2)
+      }
+    };
+  } catch (error) {
+    console.log("getPurchaseSummary error => ", error);
     return {
       success: false,
       message: "Internal server error",
