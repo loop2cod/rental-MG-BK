@@ -436,6 +436,7 @@ export const getOrderDetails = async (id) => {
       {
         $match: {
           _id: mongoose.Types.ObjectId.createFromHexString(id),
+          isDeleted: false,
         },
       },
       {
@@ -560,7 +561,7 @@ export const getOrderListWithPaginationAndSearch = async (
   try {
     let orders;
     let totalOrders;
-    const query = {};
+    const query = { isDeleted: false };
 
     // Check if search is a valid ObjectId (for user_id & booking_id)
     const isObjectId = mongoose.Types.ObjectId.isValid(search);
@@ -744,7 +745,7 @@ export const getOrderListWithPaginationAndSearch = async (
 export const getOrderBookingComparisonList = async (orderId, bookingId) => {
   try {
     // 1. Fetch Order and Booking Details
-    const order = await Order.findById(orderId);
+    const order = await Order.findOne({ _id: orderId, isDeleted: false });
     const booking = await Booking.findById(bookingId);
 
     if (!order || !booking) {
@@ -886,7 +887,7 @@ export const handleOrderDispatch = async (orderId, dispatchData, userId) => {
   session.startTransaction();
 
   try {
-    const order = await Order.findById(orderId).session(session);
+    const order = await Order.findOne({ _id: orderId, isDeleted: false }).session(session);
 
     if (!order) {
       return {
@@ -1126,7 +1127,7 @@ export const handleOrderReturn = async (orderId, returnData, userId) => {
   session.startTransaction();
 
   try {
-    const order = await Order.findById(orderId).session(session);
+    const order = await Order.findOne({ _id: orderId, isDeleted: false }).session(session);
 
     if (!order) {
       return {
@@ -1391,7 +1392,7 @@ export const handleDamagedProducts = async (
   session.startTransaction();
 
   try {
-    const order = await Order.findById(orderId).session(session);
+    const order = await Order.findOne({ _id: orderId, isDeleted: false }).session(session);
 
     if (!order) {
       return {
@@ -1472,7 +1473,7 @@ export const handleDamagedOutsourcedProducts = async (
   session.startTransaction();
 
   try {
-    const order = await Order.findById(orderId).session(session);
+    const order = await Order.findOne({ _id: orderId, isDeleted: false }).session(session);
 
     if (!order) {
       return {
@@ -1737,5 +1738,118 @@ export const getProductOrdersHistory = async (productId) => {
       message: error.message || "Internal server error",
       statusCode: 500,
     };
+  }
+};
+
+export const deleteOrder = async (orderId, userId) => {
+  const session = await mongoose.startSession();
+  
+  try {
+    session.startTransaction();
+
+    // Find the order first
+    const order = await Order.findOne(
+      { _id: orderId, isDeleted: false },
+      null,
+      { session }
+    );
+
+    if (!order) {
+      await session.abortTransaction();
+      return {
+        success: false,
+        message: "Order not found or already deleted",
+        statusCode: 404,
+      };
+    }
+
+    // Check if order can be deleted (only if not dispatched)
+    if (order.status === "dispatched" || order.status === "in-return" || order.status === "Returned") {
+      await session.abortTransaction();
+      return {
+        success: false,
+        message: "Cannot delete order that has been dispatched or returned",
+        statusCode: 400,
+      };
+    }
+
+    // Check if any items have been dispatched
+    const hasDispatchedItems = order.dispatch_items.length > 0 || order.outsourced_dispatch_items.length > 0;
+    
+    if (hasDispatchedItems) {
+      await session.abortTransaction();
+      return {
+        success: false,
+        message: "Cannot delete order with dispatched items",
+        statusCode: 400,
+      };
+    }
+
+    // Restore inventory for all order items
+    await Promise.all(
+      order.order_items.map(async (item) => {
+        await Inventory.findOneAndUpdate(
+          { product_id: item.product_id },
+          {
+            $inc: {
+              available_quantity: item.quantity,
+              reserved_quantity: -item.quantity,
+            },
+          },
+          { session }
+        );
+      })
+    );
+
+    // Update the related booking status back to Pending if it exists
+    if (order.booking_id) {
+      const bookingUpdate = await Booking.findOneAndUpdate(
+        { _id: order.booking_id, isDeleted: false },
+        {
+          isDeleted: true,
+          updated_by: userId,
+        },
+        { session, new: true }
+      );
+    } else {
+      console.log('No booking_id found in order, skipping booking update');
+    }
+
+    // Soft delete the order
+    const deletedOrder = await Order.findByIdAndUpdate(
+      orderId,
+      {
+        isDeleted: true,
+        updated_by: userId,
+      },
+      { session, new: true }
+    );
+
+    await session.commitTransaction();
+    
+    // Create notification
+    createNotification("Order deleted successfully", "success");
+
+    return {
+      success: true,
+      message: "Order deleted successfully and inventory restored",
+      data: {
+        orderId: deletedOrder._id,
+        restoredItems: order.order_items.length,
+        bookingStatus: order.booking_id ? "Reverted to Pending" : "No booking associated",
+      },
+      statusCode: 200,
+    };
+
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("deleteOrder error => ", error);
+    return {
+      success: false,
+      message: "Internal server error",
+      statusCode: 500,
+    };
+  } finally {
+    session.endSession();
   }
 };

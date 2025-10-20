@@ -264,6 +264,7 @@ export const getInventoryReports = async (req, res) => {
 
     // Get inventory summary
     const inventorySummary = await Inventory.aggregate([
+      { $match: { isDeleted: false } },
       {
         $lookup: {
           from: "products",
@@ -300,6 +301,7 @@ export const getInventoryReports = async (req, res) => {
 
     // Get detailed product inventory
     const productInventory = await Inventory.aggregate([
+      { $match: { isDeleted: false } },
       {
         $lookup: {
           from: "products",
@@ -364,6 +366,7 @@ export const getInventoryReports = async (req, res) => {
 
     // Category wise breakdown
     const categoryBreakdown = await Inventory.aggregate([
+      { $match: { isDeleted: false } },
       {
         $lookup: {
           from: "products",
@@ -833,6 +836,7 @@ export const getDashboardOverview = async (req, res) => {
       Product.countDocuments({ isDeleted: false }),
       Supplier.countDocuments({ isDeleted: false }),
       Inventory.aggregate([
+        { $match: { isDeleted: false } },
         { $group: { _id: null, totalStock: { $sum: "$quantity" } } }
       ])
     ]);

@@ -1,6 +1,7 @@
 import { sendResponse } from "../middlewares/responseHandler.js";
 import {
   createOrder,
+  deleteOrder,
   getOrderBookingComparisonList,
   getOrderDetails,
   getOrderListWithPaginationAndSearch,
@@ -193,6 +194,23 @@ export const getProductOrdersHistoryController = async (req, res) => {
     );
   } catch (error) {
     console.error("getProductOrdersHistoryController error => ", error);
+    sendResponse(res, 500, false, "Internal server error");
+  }
+};
+
+export const deleteOrderController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const response = await deleteOrder(id, req.user?._id);
+    sendResponse(
+      res,
+      response.statusCode,
+      response.success,
+      response.message,
+      response.data
+    );
+  } catch (error) {
+    console.error("deleteOrderController error => ", error);
     sendResponse(res, 500, false, "Internal server error");
   }
 };

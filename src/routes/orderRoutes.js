@@ -2,6 +2,7 @@ import express from "express";
 import { isAuthenticated } from "../middlewares/authMiddleware.js";
 import {
   createOrderController,
+  deleteOrderController,
   getOrderDetailsController,
   getOrdersComparisonController,
   getOrdersWithPaginationSearchController,
@@ -23,6 +24,7 @@ router.put(
   validateOrder,
   updateOrderController
 );
+router.delete("/delete/:id", isAuthenticated, deleteOrderController);
 router.get("/details/:id", isAuthenticated, getOrderDetailsController);
 router.get(
   "/get-orders",

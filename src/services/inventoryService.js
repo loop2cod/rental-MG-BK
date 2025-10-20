@@ -238,8 +238,15 @@ export const getAllProducts = async (
         {
           $lookup: {
             from: "inventories",
-            localField: "_id",
-            foreignField: "product_id",
+            let: { productId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$product_id", "$$productId"] },
+                  isDeleted: false
+                }
+              }
+            ],
             as: "inventoryDetails",
           },
         },
@@ -410,8 +417,15 @@ export const getAllProducts = async (
         {
           $lookup: {
             from: "inventories",
-            localField: "_id",
-            foreignField: "product_id",
+            let: { productId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$product_id", "$$productId"] },
+                  isDeleted: false
+                }
+              }
+            ],
             as: "inventoryDetails",
           },
         },
@@ -602,8 +616,15 @@ export const getAllProductsWithoutPagination = async () => {
       {
         $lookup: {
           from: "inventories",
-          localField: "_id",
-          foreignField: "product_id",
+          let: { productId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$product_id", "$$productId"] },
+                isDeleted: false
+              }
+            }
+          ],
           as: "inventory",
         },
       },
@@ -763,8 +784,15 @@ export const getAllProductsWithAvailableQuantity = async () => {
       {
         $lookup: {
           from: "inventories",
-          localField: "_id",
-          foreignField: "product_id",
+          let: { productId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$product_id", "$$productId"] },
+                isDeleted: false
+              }
+            }
+          ],
           as: "inventory",
         },
       },
@@ -834,8 +862,15 @@ export const getInventoryReports = async (filters = {}) => {
       {
         $lookup: {
           from: "inventories",
-          localField: "_id",
-          foreignField: "product_id",
+          let: { productId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$product_id", "$$productId"] },
+                isDeleted: false
+              }
+            }
+          ],
           as: "inventory"
         }
       },

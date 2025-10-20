@@ -181,8 +181,8 @@ export const updateBooking = async (id, data, fields, userId) => {
     session.startTransaction();
 
     // Retrieve the current booking within the transaction
-    const currentBooking = await Booking.findById(id).session(session);
-    if (!currentBooking || currentBooking.isDeleted) {
+    const currentBooking = await Booking.findOne({ _id: id, isDeleted: false }).session(session);
+    if (!currentBooking) {
       await session.abortTransaction();
       return {
         success: false,
@@ -265,7 +265,7 @@ export const updateBooking = async (id, data, fields, userId) => {
     data.amount_paid = currentBooking?.amount_paid;
 
     // Proceed with the update if the validation passes
-    const updatedBooking = await Booking.findOneAndUpdate({ _id: id }, data, {
+    const updatedBooking = await Booking.findOneAndUpdate({ _id: id, isDeleted: false }, data, {
       new: true,
       session,
     });
@@ -299,7 +299,7 @@ export const listBookings = async (
 ) => {
   try {
     const skip = (page - 1) * limit;
-    const searchQuery = { $or: [], status: status };
+    const searchQuery = { $or: [], status: status, isDeleted: false };
 
     // Apply expired filter
     if (type === "expired") {
@@ -348,6 +348,7 @@ export const listBookings = async (
     }
 
     // Fetch bookings with pagination
+    console.log('Booking search query:', JSON.stringify(searchQuery, null, 2));
     const bookings = await Booking.find(searchQuery)
       .skip(skip)
       .limit(limit)
@@ -358,6 +359,19 @@ export const listBookings = async (
       })
       .populate("created_by", "name")
       .populate("updated_by", "name");
+    
+    console.log(`Found ${bookings.length} bookings with status: ${status}`);
+    bookings.forEach(booking => {
+      console.log(`Record: ID: ${booking._id}, Booking_ID: ${booking.booking_id}, Status: ${booking.status}, Deleted: ${booking.isDeleted}`);
+      
+      // Check if this is actually a booking record
+      if (booking.booking_id && booking.booking_id.startsWith('ORD-')) {
+        console.log('⚠️  WARNING: Found ORDER record in booking list!', booking.booking_id);
+      }
+      if (!booking.booking_id || !booking.booking_id.startsWith('BKG-')) {
+        console.log('⚠️  WARNING: Record missing proper booking_id format!', booking.booking_id);
+      }
+    });
 
     // Count total bookings matching the search query
     const totalBookings = await Booking.countDocuments(searchQuery);
@@ -414,7 +428,7 @@ export const listBookingWithoutPagination = async () => {
 
 export const bookingView = async (id) => {
   try {
-    const booking = await Booking.findById(id).populate(
+    const booking = await Booking.findOne({ _id: id, isDeleted: false }).populate(
       "user_id",
       "name mobile secondary_mobile proof_type proof_id"
     );
@@ -448,6 +462,7 @@ export const bookingDetailsById = async (id) => {
       {
         $match: {
           _id: mongoose.Types.ObjectId.createFromHexString(id),
+          isDeleted: false,
         },
       },
       {
@@ -672,7 +687,7 @@ export const bookingDetailsById = async (id) => {
 
 export const cancelBooking = async (id, remarks) => {
   try {
-    const booking = await Booking.findById(id);
+    const booking = await Booking.findOne({ _id: id, isDeleted: false });
     if (!booking) {
       return {
         success: false,

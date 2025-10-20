@@ -28,7 +28,8 @@ export const getDashboardData = async () => {
         {
           $match: {
             order_date: { $gte: currentMonthStart, $lte: currentDate },
-            status: "Success", // Consider only successful orders for revenue
+            isDeleted: false, // Exclude deleted orders
+            status: { $in: ["dispatched", "in-return", "Returned"] }, // Consider orders that have been processed
           },
         },
         {
@@ -42,7 +43,8 @@ export const getDashboardData = async () => {
         {
           $match: {
             order_date: { $gte: lastMonthStart, $lte: lastMonthEnd },
-            status: "Success", // Consistent filtering for accurate comparison
+            isDeleted: false, // Exclude deleted orders
+            status: { $in: ["dispatched", "in-return", "Returned"] }, // Consistent filtering for accurate comparison
           },
         },
         {
@@ -71,18 +73,22 @@ export const getDashboardData = async () => {
       Booking.countDocuments({
         booking_date: { $gte: currentMonthStart, $lte: currentDate },
         status: "Pending",
+        isDeleted: false,
       }),
       Booking.countDocuments({
         booking_date: { $gte: currentMonthStart, $lte: currentDate },
         status: "Success",
+        isDeleted: false,
       }),
       Booking.countDocuments({
         booking_date: { $gte: lastMonthStart, $lte: lastMonthEnd },
         status: "Pending",
+        isDeleted: false,
       }),
       Booking.countDocuments({
         booking_date: { $gte: lastMonthStart, $lte: lastMonthEnd },
         status: "Success",
+        isDeleted: false,
       }),
     ]);
 
@@ -143,6 +149,11 @@ export const getChartData = async () => {
   try {
     // 1. Chart Data (Monthly Bookings)
     const chartData = await Booking.aggregate([
+      {
+        $match: {
+          isDeleted: false, // Exclude deleted bookings
+        },
+      },
       {
         $group: {
           _id: { $month: "$booking_date" },

@@ -27,12 +27,13 @@ export const addBookingController = async (req, res) => {
 
 export const listBookingsController = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "", type = "all" } = req.query;
+    const { page = 1, limit = 10, search = "", type = "all", status = "Pending" } = req.query;
     const response = await listBookings(
       Number(page),
       Number(limit),
       search,
-      type
+      type,
+      status
     );
 
     sendResponse(
