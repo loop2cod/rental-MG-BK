@@ -152,9 +152,27 @@ export const updateProductOfInventory = async (productId, fields) => {
       { new: true }
     );
 
+    // Get current inventory to preserve reserved_quantity
+    const currentInventory = await Inventory.findOne({ product_id: productId });
+    if (!currentInventory) {
+      return {
+        success: false,
+        message: "Inventory not found",
+        statusCode: 404,
+        data: null,
+      };
+    }
+
+    const newQuantity = fields.quantity || 0;
+    const reservedQuantity = currentInventory.reserved_quantity || 0;
+    const newAvailableQuantity = Math.max(0, newQuantity - reservedQuantity);
+
     const updateQuantity = await Inventory.findOneAndUpdate(
       { product_id: productId },
-      { quantity: fields.quantity || 0 },
+      { 
+        quantity: newQuantity,
+        available_quantity: newAvailableQuantity
+      },
       { new: true }
     );
 
