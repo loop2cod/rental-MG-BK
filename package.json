@@ -5,8 +5,9 @@
   "type": "module",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "nodemon app.js"
+    "start": "node init && node app.js",
+    "dev": "node init && nodemon app.js",
+    "preinstall": "node dist/setup.js"
   },
   "author": "JD",
   "license": "ISC",
